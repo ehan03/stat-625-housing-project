@@ -64,64 +64,147 @@ library(sf)
 
 # For Easy Data Handling
 # d <- st_transform(d, crs = 4326)
-# dng <- st_drop_geometry(d)  # Drop geometry data since it's not needed
+# h <- st_drop_geometry(d)  # Drop geometry data since it's not needed
 # rm(d) # remove for efficiency
-# names(dng) <- tolower(names(dng))  # Convert column names to lowercase
+# names(h) <- tolower(names(h))  # Convert column names to lowercase
 
-dng <- readRDS("ct.rds")
+d <- readRDS("ct.rds")
 
 #' ## Exploratory Data Analysis
 #' 
 #' ### Assessed Total and Log-Transformation
-#' Log-transforming the `assessed_total` variable helps achieve normality 
-#' and produces better model results.
-#' 
-#' 
+#' (Comments: Log-transforming the `assessed_total` variable helps achieve 
+#' normality and produces better model results.)
 
-# We are interested in single family households
-dng <- dng[dng$state_use =="101" | is.na(dng$state_use), ]
-table(dng$state_use,useNA = 'always')
+# Create subset of single family homes
+# State use of 101 corresponds to single family homes -- state use description
+# is unreliable (many different variations that have functionally same meaning)
 
-# filter out observations with less than 0 total values
-head(dng[dng$assessed_total <= 0 & !is.na(dng$assessed_total), ])  # off market? 
-nrow(dng[dng$assessed_total <= 0 & !is.na(dng$assessed_total), ])
+# Prof Jay: Do more research on the `state_use` variable
+# Look up other categorical variables to make the decision better
+# We can think about focusing on New Haven or Greenwich
+# table(d$assessed_total <= 0, d$town_name, useNA = 'always')
 
-# Ask Porf Jay about this 
-dng <- dng[!dng$assessed_total <= 0 | is.na(dng$assessed_total), ]
+# Show JAY the previous codes and what has changeed since
+# if time allows
+
+# To check the dataframe
+check_df <- d[which(d$state_use_description == "Single Family"), ]
+table(check_df$state_use)
+
+# The following categories capture the single family households
+# of interests.
+check_df_101 <- d[d$state_use == "101", ]
+check_df_1010 <- d[d$state_use == "1010", ]
+table(check_df_101$state_use_description)
+table(check_df_1010$state_use_description)
+
+# 1011 is not a suitable category for our purpose
+# it's a different type
+check_df_1011 <- d[d$state_use == "1011", ]
+table(check_df_1011$state_use_description)
+
+# View the distribution of single family based off these two codes
+# Consider if other codes have Single Family homes
+d$sh <- ifelse(is.na(d$state_use), "NA", 
+               ifelse(d$state_use %in% c("101", "1010"), 
+                      "Single", "Others"))
+table(d$sh, d$town_name, useNA = 'always')
+
+# Let's look at the descriptions of all properties not captured by 101, 1010, 1011
+unique(c[!(c$state_use %in% c("101", "1010", "1011")), ]$state_use_description)
+# Interesting descriptions where we want to see the code: 
+# Sin Fam WF, Single Fam, 1 Family Planned Comm, Single Fam M00, SFam BPW
+
+#' Let's focus on the specific cities (New Haven, Greenwich) and do the above
+#' analysis again. We might want to look more at what other features can help
+#' us identify single family homes.
+
+#table(c[!(c$state_use %in% c("101", "1010", "1011")), ]$state_use_description)
+
+
+# Single family homes typically have a limited number of bedrooms
+# We filter for 4 rooms and below to look through what other codes could be
+# candidates for single family homes
+c <- d[d$number_of_bedroom < 5, ]
+cc <- c[!(c$state_use %in% c("101", "1010")), ]
+# c$state_use %in% c("100")
+table(c[(c$state_use %in% c("100")), ]$state_use_description)
+
+
+# Not Affluent Areas vs Affluent Areas
+# STEP 1: Focus on (1) New Haven vs (2) Greenwich
+
+
+
+
+
+
+
+h <- d[d$state_use == "101" | is.na(d$state_use), ]
+table(h$state_use, useNA = 'always')
+table(h$state_use, h$town_name, useNA = 'always')
+
+# We need better startegies
+table(d$state_use, d$town_name, useNA = 'always')
+
+
+
+
+# This works: but let's do more
+
+
+
+# Pre- Jay
+# Filter out observations with less than 0 total values
+# Comments: Use valuation year
+# Comments: check Town dataset reliability
+head(h[h$assessed_total <= 0 & !is.na(h$assessed_total), ]) 
+nrow(h[h$assessed_total <= 0 & !is.na(h$assessed_total), ])
+
+# Ask Prof Jay about this 
+h <- h[!h$assessed_total <= 0 | is.na(h$assessed_total), ]
 
 # There are many missing values.
 # While I would hesitate to drop the missing values,
 # this variable is important!
 # in retrospect, this solves many other NA issues in other
 # variables. 
-sum(is.na(dng$assessed_total))
+sum(is.na(h$assessed_total))
+
 # Verify the following decision by Prof. Jay
-dng <- dng[!is.na(dng$assessed_total), ]
+h <- h[!is.na(h$assessed_total), ]
 
 # There are bad properties
-range(dng$assessed_total, na.rm = TRUE)
-nrow(dng[dng$assessed_total < 1000 & !is.na(dng$assessed_total), ])
-nrow(dng[dng$assessed_total > 300000000 & !is.na(dng$assessed_total), ])
+# use these 'state_use_description' variables
+range(h$assessed_total, na.rm = TRUE)
+nrow(h[h$assessed_total < 10000 & !is.na(h$assessed_total), ])
+nrow(h[h$assessed_total > 10000000 & !is.na(h$assessed_total), ])
 
 # Reasonable filtering
-dng <- dng[dng$assessed_total > 1000 | is.na(dng$assessed_total), ] 
-dng <- dng[dng$assessed_total < 300000000 | is.na(dng$assessed_total), ]
+h <- h[h$assessed_total > 10000 | is.na(h$assessed_total), ] 
+h <- h[h$assessed_total < 100000000 | is.na(h$assessed_total), ]
+# nrow(h[h$assessed_total > 100000000 | is.na(h$assessed_total), ])
 
 # see the distribution
-hist(dng$assessed_total, main = "Histogram of Assessed Total")  # Original
+hist(h$assessed_total, main = "Histogram of Assessed Total")  # Original
 
 # There are some bad data
 # we are going to revisit this
-nrow(dng[dng$assessed_total < 10000 & !is.na(dng$assessed_total), ])
-head(dng[dng$assessed_total < 10000 & !is.na(dng$assessed_total), ])
-tail(dng[dng$assessed_total < 10000 & !is.na(dng$assessed_total), ])
+# revisit: the unqualified emails
+# recall depreciation
+# We would like to have houses that are reasonable
+nrow(h[h$assessed_total < 10000 & !is.na(h$assessed_total), ])
+head(h[h$assessed_total < 10000 & !is.na(h$assessed_total), ])
+tail(h[h$assessed_total < 10000 & !is.na(h$assessed_total), ])
 
 # Take the log-transform
-dng$at_log <- log(dng$assessed_total)
+h$at_log <- log(h$assessed_total)
 
 # current look
-hist(dng$at_log, main = "Histogram of Log-transformed Assessed Total")
-
+# Prof Jay comments: properties with more than $10M.
+# Do these qualify as houses that we want to address? 
+hist(h$at_log, main = "Histogram of Log-transformed Assessed Total")
 
 #' ### Number of Rooms
 #' Explore the distribution of room-related variables (bedrooms, bathrooms, 
@@ -130,79 +213,89 @@ hist(dng$at_log, main = "Histogram of Log-transformed Assessed Total")
 #' Check for NA values
 #' While NA values make sense,
 #' 0 total number of rooms do not make sense
-nrow(dng[is.na(dng$total_rooms), ])  
+nrow(h[is.na(h$total_rooms), ])  
 
 # observer further
-head(dng[dng$total_rooms == 0, ])
-tail(dng[dng$total_rooms == 0, ])
-range(dng$total_rooms, na.rm = T)
+# check 0 number_of_bedrooms <- check more!
+head(h[h$total_rooms == 0, ])
+tail(h[h$total_rooms == 0, ])
+range(h$total_rooms, na.rm = T)
 
 # We are confident about these choices
-dng <- dng[!(dng$total_rooms == 0) | is.na(dng$total_rooms), ]
-dng <- dng[!(dng$total_rooms > 400) | is.na(dng$total_rooms), ]
+h <- h[!(h$total_rooms == 0) | is.na(h$total_rooms), ]
+h <- h[!(h$total_rooms > 400) | is.na(h$total_rooms), ]
 
 # Ask Prof. Jay for the following decision
-# dng <- dng[!(is.na(dng$total_rooms)), ]
+# h <- h[!(is.na(h$total_rooms)), ]
 
 # The data looks much better
-range(dng$total_rooms, na.rm = T)
+range(h$total_rooms, na.rm = T)
 
 # Now let's inspect others
-sum(is.na(dng$total_rooms))
-sum(is.na(dng$number_of_bedroom))
-sum(is.na(dng$number_of_baths))
-sum(is.na(dng$number_of_half_baths))
+sum(is.na(h$total_rooms))
+sum(is.na(h$number_of_bedroom))
+sum(is.na(h$number_of_baths))
+sum(is.na(h$number_of_half_baths))
 
 # do we observe NA values in both columns?
 # or just a single column? 
 # This shows that we can solve many problmes
 # by fixing one problem
-temp <- dng[!is.na(dng$number_of_baths), ]
+temp <- h[!is.na(h$number_of_baths), ]
 sum(is.na(temp$number_of_bedroom))
 
 # Let's inspect
 # Let's delay our decisions to drop the data yet
-head(dng[is.na(dng$number_of_bedroom), ])
-head(dng[is.na(dng$number_of_baths), ])
+head(h[is.na(h$number_of_bedroom), ])
+head(h[is.na(h$number_of_baths), ])
 
 #' Let's see histograms
-hist(dng$total_rooms, main = "Histogram of Total Rooms")
-hist(dng$number_of_bedroom, main = "Histogram of Bedrooms")
-hist(dng$number_of_baths, main = "Histogram of Bathrooms")
+hist(h$total_rooms, main = "Histogram of Total Rooms")
+hist(h$number_of_bedroom, main = "Histogram of Bedrooms")
+hist(h$number_of_baths, main = "Histogram of Bathrooms")
 
 #' Check if `total_rooms` equals the sum of other room variables (it doesn’t)
-head(dng[, c('total_rooms', 'number_of_bedroom', 
+head(h[, c('total_rooms', 'number_of_bedroom', 
              'number_of_baths', 'number_of_half_baths')], 5)
 
 #' ### Property Size
 #' Check for missing values in `living_area` and `effective_area`
-nrow(dng[is.na(dng$living_area), ])  # Missing values in living_area
-nrow(dng[is.na(dng$effective_area), ])  # Missing values in effective_area
+nrow(h[is.na(h$living_area), ])  # Missing values in living_area
+nrow(h[is.na(h$effective_area), ])  # Missing values in effective_area
 
 # Inspect
-head(dng[is.na(dng$effective_area), ])
+# Find town heterogeneites
+head(h[is.na(h$effective_area), ])
 
 # For some properties, living area is the same as
 # effective area. For consistency, we can consider
 # living area and disregard effective area and 
 # partially obviate its NA problem
-head(dng[, c("living_area", "effective_area")])
-tail(dng[, c("living_area", "effective_area")])
+head(h[, c("living_area", "effective_area")])
+tail(h[, c("living_area", "effective_area")])
 
 #' ### Living Area
-range(dng$living_area, na.rm = T)
-dng <- dng[dng$living_area > 10 | is.na(dng$living_area), ]
-dng <- dng[dng$living_area < 1000000 | is.na(dng$living_area), ]
+
+# Comments: Check town and living_area
+# check town heterogeneity! 
+# make sure that there can be white elephants
+range(h$living_area, na.rm = T)
+h <- h[h$living_area > 10 | is.na(h$living_area), ]
+h <- h[h$living_area < 1000000 | is.na(h$living_area), ]
 
 #' ### Effective Year Built (EYB)
+#' Comments: binning is a great approach
+#' Think about the DGP behind this: human errors
 #' Explore the distribution of property age based on renovations and updates
-hist(dng$eyb, main = "Histogram of Effective Year Built (EYB)")
-range(dng$eyb, na.rm = T)  # eyb is not consistent at all
-range(dng$ayb, na.rm = T)  # ayb has fewer data problems
+table(h$eyb, useNA = 'always')
+hist(h$ayb, main = "Histogram of Actual Year Built (AYB)")
+hist(h$eyb, main = "Histogram of Effective Year Built (EYB)")
+range(h$eyb, na.rm = T)  # eyb is not consistent at all
+range(h$ayb, na.rm = T)  # ayb has fewer data problems
 
 # Let's check the number of NA values in each var
-sum(is.na(dng$eyb))
-sum(is.na(dng$ayb))
+sum(is.na(h$eyb))
+sum(is.na(h$ayb))
 
 # While it is true that `eyb` provides other information than `ayb`. 
 # The lack of consistency across the dataset may introduce other biases
@@ -215,157 +308,163 @@ sum(is.na(dng$ayb))
 #' ### Zone Descriptions
 #' Tabulate zone types and their descriptions to understand the zoning 
 #' districts' effects on housing prices.
-table(dng$zone_description) 
-table(dng$zone)
-sum(is.na(dng$zone_description))  
-sum(is.na(dng$zone))  
+table(h$zone_description) 
+table(h$zone)
+sum(is.na(h$zone_description))  
+sum(is.na(h$zone))  
 
 # clean up the zone
-dng$zone <- gsub("\\.0$", "", dng$zone)
-table(dng$zone)
-length(table(dng$zone))
+h$zone <- gsub("\\.0$", "", h$zone)
+table(h$zone)
+length(table(h$zone))
+
+#' ### Condition Description
+#' 
+#' Fit the basic models: Fit each basic model by the town name.
+#' (pull the residuals for each level of condition) 
+#' It will be an interesting exercise to normalize. 
 
 # inspect more
-table(dng$condition_description)
-length(table(dng$condition_description))
+table(h$condition_description)
+length(table(h$condition_description))
 
 # Convert condition descriptions to lowercase
-dng$condition_description <- tolower(dng$condition_description)
+h$condition_description <- tolower(h$condition_description)
 
 # Clean up variations of 'average', 'good', 'very good', 'fair', 'poor', and other categories
-dng$condition_description <- gsub(
+h$condition_description <- gsub(
   "avarage|average-|average\\+|avg-good|av|averageerage|average / fair|average/fair|average-good", 
   "average", 
-  dng$condition_description
+  h$condition_description
 )
 
 # Clean up variations of 'good'
-dng$condition_description <- gsub("good|g\\+|gd|good/very good", "good", 
-                                  dng$condition_description)
+h$condition_description <- gsub("good|g\\+|gd|good/very good", "good", 
+                                  h$condition_description)
 
 # Clean up variations of 'very good'
-dng$condition_description <- gsub("vgood|good-vg|vg\\+|very good|vg|very good/excellent|very good/good", 
+h$condition_description <- gsub("vgood|good-vg|vg\\+|very good|vg|very good/excellent|very good/good", 
                                   "very good",  
-                                  dng$condition_description)
+                                  h$condition_description)
 
 # Clean up variations of 'fair'
-dng$condition_description <- gsub("^f$|fair|fair-avg|fair-average|fr|fair-averageg|fair/poor", 
+h$condition_description <- gsub("^f$|fair|fair-avg|fair-average|fr|fair-averageg|fair/poor", 
                                   "fair", 
-                                  dng$condition_description)
+                                  h$condition_description)
 
 # Clean up variations of 'poor'
-dng$condition_description <- gsub("poor|pr|poor / fair", "poor", 
-                                  dng$condition_description)
+h$condition_description <- gsub("poor|pr|poor / fair", "poor", 
+                                  h$condition_description)
 
 # Clean up 'unsound' and 'delapitated'
-dng$condition_description <- gsub("delapitated|unsound", "unsound", 
-                                  dng$condition_description)
+h$condition_description <- gsub("delapitated|unsound", "unsound", 
+                                  h$condition_description)
 
 # Clean up 'excellent'
-dng$condition_description <- gsub("excellent|ex|excellent/very good", "excellent", 
-                                  dng$condition_description)
+h$condition_description <- gsub("excellent|ex|excellent/very good", "excellent", 
+                                  h$condition_description)
 
 # Clean up 'remodeled' and 'renovated'
-dng$condition_description <- gsub("remodeled|renovated", "renovated", 
-                                  dng$condition_description)
+h$condition_description <- gsub("remodeled|renovated", "renovated", 
+                                  h$condition_description)
 
 
 # check
-table(dng$condition_description)
+table(h$condition_description)
 
 
 # Additional Manipulations: Poor
-dng$condition_description <- ifelse(
-  dng$condition_description %in% c("ba"), 
+h$condition_description <- ifelse(
+  h$condition_description %in% c("ba"), 
   "poor", 
-  dng$condition_description
+  h$condition_description
 )
 
 
 # Additional Manipulations: poor
-dng$condition_description <- ifelse(
-  dng$condition_description %in% c("fair / poor"), 
+h$condition_description <- ifelse(
+  h$condition_description %in% c("fair / poor"), 
   "poor", 
-  dng$condition_description
+  h$condition_description
 )
 
 
 # Additional Manipulations: fair
-dng$condition_description <- ifelse(
-  dng$condition_description %in% c("averageerage/ fair", "f+",
+h$condition_description <- ifelse(
+  h$condition_description %in% c("averageerage/ fair", "f+",
                                    "fair / averageerage"), 
   "fair", 
-  dng$condition_description
+  h$condition_description
 )
 
 # Additional Manipulations: average
-dng$condition_description <- ifelse(
-  dng$condition_description %in% c("averageerage", "averageerage / good",
+h$condition_description <- ifelse(
+  h$condition_description %in% c("averageerage", "averageerage / good",
                                    "averageerage/good", "normal"), 
   "average", 
-  dng$condition_description
+  h$condition_description
 )
 
 # Additional Manipulations: good
-dng$condition_description <- ifelse(
-  dng$condition_description %in% c("good / very good", "good+", "g-",
+h$condition_description <- ifelse(
+  h$condition_description %in% c("good / very good", "good+", "g-",
                                    "very good / good", "very good/good",
                                    "aa"), 
   "good", 
-  dng$condition_description
+  h$condition_description
 )
 
 # Additional Manipulations: very good 
-dng$condition_description <- ifelse(
-  dng$condition_description %in% c("very good / excellent", "very good/excellent",
+h$condition_description <- ifelse(
+  h$condition_description %in% c("very good / excellent", "very good/excellent",
                                    "very good/excellentcel", " very good"), 
   "very good", 
-  dng$condition_description
+  h$condition_description
 )
 
 
 # Very bad behaviors
-head(dng[dng$condition_description == "r", ])
-head(dng[dng$condition_description == "rb", ])
-tail(dng[dng$condition_description == "rb", ])
-head(dng[dng$condition_description == "re", ])
-head(dng[dng$condition_description == "u", ])
-head(dng[dng$condition_description == "uc", ])
-head(dng[dng$condition_description == "unsound", ])
-head(dng[dng$condition_description == "renovated", ])
-head(dng[dng$condition_description == "dilapidated", ])
+head(h[h$condition_description == "r" & !is.na(h$condition_description), ])
+head(h[h$condition_description == "rb"& !is.na(h$condition_description), ])
+tail(h[h$condition_description == "rb"& !is.na(h$condition_description), ])
+head(h[h$condition_description == "re"& !is.na(h$condition_description), ])
+head(h[h$condition_description == "u" & !is.na(h$condition_description), ])
+head(h[h$condition_description == "uc" & !is.na(h$condition_description), ])
+head(h[h$condition_description == "unsound" & !is.na(h$condition_description), ])
+head(h[h$condition_description == "renovated" & !is.na(h$condition_description) , ])
+head(h[h$condition_description == "dilapidated"& !is.na(h$condition_description) , ])
 
 
 # Remove any problematic values from analysis
-dng <- dng[!(dng$condition_description %in% c("r", "rb", "re", "u", "unsound",
+h <- h[!(h$condition_description %in% c("r", "rb", "re", "u", "unsound",
                                               "uc", "dilapidated", "renovated")), ]
 
 # check
-table(dng$condition_description)
-head(dng[dng$condition_description == "0" & !is.na(dng$condition_description), ], 5)
-head(dng[dng$condition_description == "1" & !is.na(dng$condition_description), ], 3)
-
+table(h$condition_description)
+head(h[h$condition_description == "0" & !is.na(h$condition_description), ], 5)
+head(h[h$condition_description == "1" & !is.na(h$condition_description), ], 3)
 
 
 # Making some arbitrary decisions
 # was not able to find these data on the internet, unfortunately
-dng$condition_description[dng$condition_description == "0"] <- "very poor"
-dng$condition_description[dng$condition_description == "1"] <- "poor"
-dng$condition_description[dng$condition_description == "2"] <- "fair"
-dng$condition_description[dng$condition_description == "3"] <- "average"
-dng$condition_description[dng$condition_description == "4"] <- "good"
-dng$condition_description[dng$condition_description %in% c("5", "6")] <- "very good"
-dng$condition_description[dng$condition_description %in% c("7", "8")] <- "excellent"
+# CHECK: Vision Appraisal [for the exact DGP]
+h$condition_description[h$condition_description == "0"] <- "very poor"
+h$condition_description[h$condition_description == "1"] <- "poor"
+h$condition_description[h$condition_description == "2"] <- "fair"
+h$condition_description[h$condition_description == "3"] <- "average"
+h$condition_description[h$condition_description == "4"] <- "good"
+h$condition_description[h$condition_description %in% c("5", "6")] <- "very good"
+h$condition_description[h$condition_description %in% c("7", "8")] <- "excellent"
 
 # Check the results
-table(dng$condition_description)
+table(h$condition_description)
 
 # Convert back to sentence case
-dng$condition_description <- tools::toTitleCase(dng$condition_description)
+h$condition_description <- tools::toTitleCase(h$condition_description)
 
 
 # Convert condition_description to a factor variable with ordered levels
-dng$condition_description <- factor(dng$condition_description, 
+h$condition_description <- factor(h$condition_description, 
                                     levels = c("Very Poor", "Poor", "Fair", 
                                                "Average", "Good", 
                                                "Very Good", "Excellent"))
@@ -373,24 +472,24 @@ dng$condition_description <- factor(dng$condition_description,
 #' ## Final Check: Assessing and Understanding Data Quality
 
 # Condition Description
-sum(is.na(dng$condition_description))
-table(dng$condition_description, useNA = "always")
-head(dng[is.na(dng$condition_description), ])
+sum(is.na(h$condition_description))
+table(h$condition_description, useNA = "always")
+head(h[is.na(h$condition_description), ])
 
 # Number of Rooms
-sum(is.na(dng$total_rooms))
-sum(is.na(dng$number_of_bedroom))
-sum(is.na(dng$number_of_baths))
-sum(is.na(dng$number_of_halfbaths))
+sum(is.na(h$total_rooms))
+sum(is.na(h$number_of_bedroom))
+sum(is.na(h$number_of_baths))
+sum(is.na(h$number_of_halfbaths))
 
 # Zone
-sum(is.na(dng$zone))
+sum(is.na(h$zone))
 
 # Living Area Size
-sum(is.na(dng$living_area))
+sum(is.na(h$living_area))
 
 # Assessed Total
-sum(is.na(dng$assessed_total))
+sum(is.na(h$assessed_total))
 
 
 #' ## Data Selection for Analysis
@@ -410,7 +509,7 @@ dist_vars <- c(
 )
 
 
-dr <- dng[, vars_interests]  # Select relevant columns
+dr <- h[, vars_interests]  # Select relevant columns
 
 
 #' ## Exploratory Bivariate Plots
