@@ -87,16 +87,21 @@ d <- readRDS("ct.rds")
 #' might be driven by properties that have a substantial number of rooms,
 #' expensive price tag, among others.
 #' 
+#' Here, we do not drop NA values. This is to ensure that we are making 
+#' choices that we are sure about first to reduce complexities. 
+#' 
 #' 
 #' 
 #' ### Number of Bedrooms and Number of Bathrooms
+
+# Number of Bedrooms: We want less than 5 number of bedrooms
 nrow(d)
 sum(d$number_of_bedroom > 5, na.rm = T)
 d <- d[d$number_of_bedroom < 5 | is.na(d$number_of_bedroom), ]
 head(d)
 
 
-
+# Number of Bathrooms: We want at least one bathroom
 # Checked 59 BECKWITH RD: does not look like a house
 # Checked 98 NORTHROP RD: is not a house
 # Checked 730 AMITY RD: this is a hoop house
@@ -108,12 +113,14 @@ head(d)
 
 #' ### Assessed Total
 
+# Assessed Total: we do not want too cheap houses
 # We want reasonably priced houses
 nrow(d)
 sum(d$assessed_total < 50000, na.rm = T)
 d <- d[d$assessed_total > 50000, ]
 head(d)
 
+# Assessed Total: we do not want too expensive houses
 # We do not want too expensive houses 
 nrow(d)
 sum(d$assessed_total > 10000000, na.rm = T)
@@ -123,6 +130,9 @@ head(d)
 #' ### Living Area
 #' 
 
+
+
+# Living Area: Living Area has to be greater than 0
 # Checked 43 EAST SHORE DR: This looks like a garage
 # Checked 196 HIDDEN LAKE RD: This definitely is not a house 
 head(d[d$living_area == 0 & !is.na(d$living_area), ])
@@ -130,7 +140,7 @@ sum(d$living_area == 0, na.rm = T)
 d <- d[d$living_area != 0, ]
 head(d)
 
-
+# Living Area: Living Area has to be greater than 200
 # We do not want to live in areas that have less
 # than 200 square feet
 sum(d$living_area < 200, na.rm = T)
@@ -138,18 +148,27 @@ d <- d[d$living_area > 200 | is.na(d$living_area), ]
 head(d)
 
 
-#' ### We need to inspect the town name
-#' We can be confident about dropping thsese observations
+#' ### Town Name
+#' We have previously shown that the DGP behind the data are heterogeneous
+#' by town among other things. We select on towns based on our observation
+#' that a great portion of our observations are not good. Therefore,
+#' we remove these observations from our data frame. 
+
+
+# We are going to inspect what the data looks like for those
+# that have missing town names
 nrow(d)
 dnt <- d[is.na(d$town_name), ]
 nrow(dnt)
+
+# The following shows that they are bad observations
+# that have no real data.
 table(dnt$assessed_total, useNA = 'always')
 table(dnt$number_of_bedroom, useNA = 'always')
 table(dnt$number_of_baths, useNA = 'always')
 table(dnt$zone, useNA = 'always')
 
-# The observations that have no town name are 
-# bad observations
+# Therefore, we remove them from our data
 d <- d[!is.na(d$town_name), ]
 
 
@@ -169,11 +188,12 @@ length(unique(d$state_use))
 # The following gives a comprehensive list of state use descriptions
 sort(table(d$state_use_description, useNA = 'always'))
 
-# Save the names
+# Save the names of single family households
 state_desc <- tolower(names(table(d$state_use_description, useNA = 'always')))
 
 # Extract the single family homes using the regex exp
-single_desc <- state_desc[grep("^(1 f|single|sf|one f|s f|sin|res single)", state_desc)]
+single_desc <- state_desc[grep("^(1 f|single|sf|one f|s f|sin|res single)", 
+                               state_desc)]
 
 
 # c for check
