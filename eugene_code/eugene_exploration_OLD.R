@@ -5,6 +5,12 @@ library(sf)
 dg <- st_read("data/CT-parcel-data/4c5501b8-b68e-4888-bf6a-d92670d69c3b.gdb/")
 dg <- st_transform(dg, crs = 4326)
 
+
+
+
+
+
+
 # Create subset of single family homes
 # State use of 101 corresponds to single family homes -- state use description
 # is unreliable (many different variations that have functionally same meaning)
@@ -79,7 +85,7 @@ unique(h$Condition_Description)
 
 
 # Load SNAP info
-s <- read.csv("data/CT_SNAP_Authorized_Retailers_20240920.csv")
+s <- read.csv("../data/CT_SNAP_Authorized_Retailers_20240920.csv")
 
 # Convert to spatial and match pseudo-mercator of dg
 s_sf <- st_as_sf(s, coords = c("Longitude", "Latitude"), crs = 4326)
