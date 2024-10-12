@@ -281,18 +281,469 @@ sfh_rows + cond_rows
 # Not Affluent Areas vs Affluent Areas
 # STEP 1: Focus on (1) New Haven vs (2) Greenwich
 
-
-
-
-
-
-
 h <- d[d$State_Use == "101" | is.na(d$State_Use), ]
 table(h$State_Use, useNA = 'always')
 table(h$State_Use, h$Town_Name, useNA = 'always')
 
 # We need better startegies
 table(d$State_Use, d$Town_Name, useNA = 'always')
+
+
+#################################
+########### PETER START #########
+#################################
+
+#' Here we explore the following
+#"
+#' #' 1. **Rooms**: Includes bedrooms, bathrooms, half-baths, and total rooms. 
+#'    We anticipate a positive correlation between the number of rooms and 
+#'    housing prices.
+#' 
+#' 2. **Size**: Property size, where larger properties are expected to have 
+#'    higher prices. We exclude farm properties by focusing on single-family 
+#'    households to avoid misclassification.
+#' 
+#' 3. **Zone**: Different zoning regulations (e.g., residential, commercial) 
+#'    that affect property use, including permissions for commercial activities 
+#'    like restaurants, which can influence housing prices.
+#' 
+#' 4. **Actual Year Built (AYB)**: Reflects property age. We anticipate that 
+#'    older properties may be less expensive unless they have been renovated.
+#' 
+#' 5. **Condition**: Property condition categories (e.g., Excellent, Poor) 
+#'    are expected to show variation in housing prices.
+#'    
+#'    
+#'
+#'
+#' 
+#' ### Rooms
+#' 
+#' 
+#' (1) Number of Bedrooms
+#' 
+#' We find that the number of bedrooms is reasonable.
+range(sfh$Number_of_Bedroom, na.rm = T)
+
+#' We observe that there are a number of bedrooms that are
+#' equal to 0 and has NA values. We inspect further to find out
+#' what these properties are. 
+table(sfh$Number_of_Bedroom, useNA = 'always')
+zbed <- sfh[sfh$Number_of_Bedroom == 0 & !is.na(sfh$Number_of_Bedroom), ]
+zbed
+
+#' Since properties with 0 number of beds are small, we manually check
+#' every property. After cross-checking with Vision Appraisal, it appears
+#' that some NA values have been converted to 0. We fix the values for
+#' these properties. In the process, we have further found out that there
+#' are 2 duplicates in our data
+
+# checked 115 CRANSTON ST: it is a 2 bed and 1 bath property [zillow]
+# we observe that there are duplicates, we remove the wrong information
+sfh <- sfh[!(sfh$Location == "115 CRANSTON ST" & sfh$Total_Rooms == 0), ]
+
+# checked 532 CHAPEL ST: it is a 1 bed and 1 bath property [coldwell]
+sfh$Number_of_Bedroom <- ifelse(sfh$Location == "532 CHAPEL ST", 1,
+                                sfh$Number_of_Bedroom)
+
+sfh$Number_of_Baths <- ifelse(sfh$Location == "532 CHAPEL ST", 1,
+                              sfh$Number_of_Baths)
+
+# checked 98 PARK ST: it is a 3 bed and 2 bath property [zillow]
+sfh$Number_of_Bedroom <- ifelse(sfh$Location == "98 PARK ST", 3,
+                                sfh$Number_of_Bedroom)
+
+sfh$Number_of_Baths <- ifelse(sfh$Location == "98 PARK ST", 2,
+                              sfh$Number_of_Baths)
+
+
+# checked 348 ELM ST: it is a 6 bed and 2 bath property [zillow]
+sfh$Number_of_Bedroom <- ifelse(sfh$Location == "348 ELM ST ", 6,
+                                sfh$Number_of_Bedroom)
+
+sfh$Number_of_Baths <- ifelse(sfh$Location == "348 ELM ST ", 2,
+                              sfh$Number_of_Baths)
+
+# checked 445 GEORGE ST: it is a 4bed and 2 bath property [zillow]
+sfh$Number_of_Bedroom <- ifelse(sfh$Location == "445 GEORGE ST", 4,
+                                sfh$Number_of_Bedroom)
+
+sfh$Number_of_Baths <- ifelse(sfh$Location == "445 GEORGE ST", 2,
+                              sfh$Number_of_Baths)
+
+# checked 132 COVE ST: it is a studio: 0 bed and 1 bath property [trulia]
+# checked 156 COVE ST: it is a studio: 0 bed and 2 bath property [trulia]
+
+# Check Duplicates
+ppp <- names(table(sfh$Location))
+duplicates <- as.vector(table(sfh$Location) > 1)
+ppp[duplicates]
+
+# checked 1 RESERVOIR ST: 4 bed and 4 bath is the correct observation [zillow]
+sfh <- sfh[!(sfh$Location == "1 RESERVOIR ST" & sfh$Number_of_Bedroom != 4), ]
+
+#' Review the result:
+#' It makes sense that most single family home properties have more than
+#' 0 number of bedrooms. For the 2 properties, we have verified that they
+#' were studios. 
+sort(table(sfh$Number_of_Bedroom, useNA = 'always'))
+
+#' Now, let's inspect properties with NA values in the number of bedrooms
+nbed <- sfh[is.na(sfh$Number_of_Bedroom), ]
+
+# Let's inspect the properties: Many of them are owned by City of New Haven!
+table(nbed$Owner)
+
+#' Since the number of data is manageable (< 30), we manually inspect the
+#' observation using the internet and reassign the values correctly.
+#' Since we have checked earlier that there are no duplicates in our data,
+#' we are confident about this function! 
+
+# Creating a customized function to assign the number of bedroom. 
+assign_bed_bath <- function(loc, bed_input, bath_input) {
+  
+  # Create the location input directly as loc
+  loc_input <- loc
+  
+  before_bed <- sum(is.na(sfh$Number_of_Bedroom))
+  before_bath <- sum(is.na(sfh$Number_of_Baths))
+  
+  # Save the number of bedrooms appropriately!
+  sfh$Number_of_Bedroom <- ifelse(sfh$Location == loc_input, 
+                                  bed_input,
+                                  sfh$Number_of_Bedroom)
+  
+  # Save the number of bathrooms appropriately!
+  sfh$Number_of_Baths <- ifelse(sfh$Location == loc_input, 
+                                bath_input,
+                                sfh$Number_of_Baths)
+  
+  # To ensure that the function has been called
+  after_bed <- sum(is.na(sfh$Number_of_Bedroom))
+  after_bath <- sum(is.na(sfh$Number_of_Bath))
+  
+  print(paste0(
+    "The number of bed & bath with NA value has been changed from", 
+    "(", before_bed, ",", before_bath, ")", " to ",
+    "(", after_bed, ",", after_bath, ")"))
+  
+  return(sfh)
+  
+}
+
+#' We find some infomration online. For most properties, however,
+#' the information is eithern ot available or they are apartments.
+#' Since the location does not provie the full apartment number,
+#' it appears that key information about the number of bedrooms and 
+#' bathrooms are omitted from the data. 
+
+# checked 121 STUYVESANT AV: 5bed, 2 bath [realtor]
+sfh <- assign_bed_bath("121 STUYVESANT AV", 5, 2)
+
+# checked 6 TOWNSEND AV: 2bed, 1 bath [redfin]
+sfh <- assign_bed_bath("6 TOWNSEND AV", 2, 1)
+
+# checked 23 CHAMBERLAIN ST #23: no information
+# checked 145 EASTERN ST: no information, does not look like a house
+# checked 1000 QUINNIPIAC AV: no information
+# checked 1134 QUINNIPIAC AV: no information
+# checked 408 VALLEY ST: no information
+# checked 2 SO GENESEE ST: no information
+# checked 436 VALLEY ST: no information
+# checked 165 FRANKLIN ST : no information
+# checked 29 JEFFERSON ST: no information
+# checked 15 OLIVE ST: no information
+# checked 49 UNION AV: no information
+# checked 162 COLUMBUS AV: no information
+# checked 84 PARK ST : no information
+
+# checked 109 FRANK ST: 4 bed and 1.5 bath [zillow]
+sfh <- assign_bed_bath("109 FRANK ST", 4, 2)
+
+# checked 5 DAISY ST: no information, does not look like a house
+# checked 578 GEORGE ST: no information
+# checked 3 WAVERLY ST : no information
+# checked 33 SYLVAN AV: no information 
+# checked 819 SHERMAN AV: no information
+# checked 220 COUNTY ST: no information
+
+# checked 210 VALLEY ST: 2 bad and 1 bath [hotpads]
+sfh <- assign_bed_bath("210 VALLEY ST", 2, 1)
+
+# checked 295 WILMOT RD: no information, does not look like a house
+# checked 34 BURTON ST: 0 bed (studio) and 1 bath [trulia] 
+sfh <- assign_bed_bath("34 BURTON ST ", 0, 1)
+
+
+# Now we are ready to drop observations that have NA values
+# in the number of bedrooms. 
+sfh <- sfh[!(is.na(sfh$Number_of_Bedroom)), ]
+
+
+#' (2) Number of Bathrooms
+#' 
+#' There are 5 units with 0 number of bathrooms and 1 unit with NA. 
+#' We check them manually!
+table(sfh$Number_of_Baths, useNA = 'always')
+
+# saving the dataframe with 0 or NA Bathrooms
+nbath <- sfh[sfh$Number_of_Baths == 0 | is.na(sfh$Number_of_Baths), ]
+nbath$Location
+
+#' Again, there have been errors. These errors make sense given that
+#' singe family houses usually have at least one bathroom.
+#' We use `assign_bed_bath` function again to make correct transformations
+#' 
+
+# checked 1395 CHAPEL ST: dentistry, 2 beds has no info on bathroom
+# we believe that there should be at least one bathroom hence assign 1 bath
+sfh <- assign_bed_bath("1395 CHAPEL ST", 2, 1)
+
+# checked 255 LEXINGTON AV : has 5 bed and 2 bath [realtor]
+sfh <- assign_bed_bath("255 LEXINGTON AV ", 2, 1)
+
+# checked 269 FRONT ST : has 3 bed and 0.5 bath [zillow]
+sfh <- assign_bed_bath("269 FRONT ST ", 2, 1)
+
+# checked 26 DOWNES ST: has 5 bed and 2 bath [zillow]
+sfh <- assign_bed_bath(" 26 DOWNES ST", 2, 1)
+
+# checked 132 COVE ST: has 0 bed (studio) and 1 bath [trulia] 
+sfh <- assign_bed_bath("132 COVE ST", 2, 1)
+
+# checked 156 COVE ST: has 0 bed (studio) and 2 bath [trulia]
+sfh <- assign_bed_bath("156 COVE ST", 2, 1)
+
+
+#' Final Check
+range(sfh$Number_of_Bedroom)
+range(sfh$Number_of_Baths)
+
+# There are many properties that have zero half-baths
+# and there are 40 NA values. Since half-baths are not
+# typical in single households, we do not consider them 
+table(sfh$Number_of_Half_Baths, useNA = 'always')
+
+#' ###  Size
+#' 
+#' 
+#' We consider (1) Effective Area and (2) Living Area
+#' 
+#' We observe that `Effective Area` is not equal to `Living Area`.
+#' Otherwise, the variable looks great. There are no extreme values.
+#' We may consider using `square root` to 
+range(sfh$Effective_Area)
+range(sfh$Living_Area)
+
+hist(sfh$Effective_Area)
+hist(sfh$Living_Area)
+
+hist(sqrt(sfh$Effective_Area))
+hist(sqrt(sfh$Living_Area)) 
+
+hist(log(sfh$Effective_Area))
+hist(log(sfh$Living_Area)) 
+
+#' ### Condition
+
+# There are 2 U values 328 F values.
+# We inspect whether F means Fair, and what U looks like
+table(sfh$Condition_Description, useNA = 'always')
+
+#' Both properties with U are pretty old. 
+#' It appears that U stands for Unknown or Unspecified.
+#' We searched the web to find their conditions, and changed them
+#' accordingly. 
+
+sfh[sfh$Condition_Description == "U", ]
+
+# checked 269 FRONT ST: Fair [redfin]
+sfh$Condition_Description <- ifelse(sfh$Location == "269 FRONT ST ",
+                                    "F",
+                                    sfh$Condition_Description)
+
+# checked 6 EVERGREEN CT: Average [redfin]
+sfh$Condition_Description <- ifelse(sfh$Location == "6 EVERGREEN CT ",
+                                    "Average",
+                                    sfh$Condition_Description)
+
+# Great
+table(sfh$Condition_Description, useNA = 'always')
+
+# Now check whether F means Fair
+# checked 351 CONCORD ST - average [redfin]
+# checked 100 FARREN AV - average [redfin, vision]
+# checked 113 CEDAR ST - average [redfin, vision]
+# checked 922 WINCHESTER AV - average[redfin]
+head(sfh[sfh$Condition_Description == "F", ])
+
+#' 
+#' Due to many overlaps, we change F to Average
+sfh$Condition_Description <- ifelse(sfh$Condition_Description == "F",
+                                    "Average",
+                                    sfh$Condition_Description)
+
+sfh$Condition_Description <- factor(sfh$Condition_Description,
+                                    levels = c("Very Poor", "Poor", "Average",
+                                               "Good", "Excellent"
+                                    ))
+
+#' ### Zone
+#' 
+#' We have categorized different zones. Please see Appendix for details.
+#' Please note that the zoning may not be accurate. However, we tried to
+#' make reasonable categories in accordance with the reference materials
+#' to ensure that our future model does not become too complex
+
+# Categories (Simplified to 8):
+residential <- c("RS1", "RS2", "RS1/RS2", "RM1", "RM2", "RM2/RS2", "RH1", "RH2")
+mixed_use <- c("RO", "BA/RM1", "BA/RM2", "BA/RS2")
+commercial <- c("BA", "BA1", "BB", "BC", "BD", "BD1")
+industrial <- c("IL", "IH", "IH/RM2")
+planned_development <- c("PDD 119", "PDD 26", "PDD 39", "PDD 49", "PDD 52", 
+                         "PDU 102", "PDU 106", "PDU 108", "PDU 16", "PDU 72", 
+                         "PDU 75", "PDU 95")
+special_use <- c("CEM", "PARK")
+
+# Assigning categories using ifelse
+sfh$Zone_Category <- ifelse(sfh$Zone %in% residential, 
+                            "Residential", sfh$Zone_Category)
+sfh$Zone_Category <- ifelse(sfh$Zone %in% mixed_use, 
+                            "Mixed-Use", sfh$Zone_Category)
+sfh$Zone_Category <- ifelse(sfh$Zone %in% commercial, 
+                            "Commercial", sfh$Zone_Category)
+sfh$Zone_Category <- ifelse(sfh$Zone %in% industrial, 
+                            "Industrial", sfh$Zone_Category)
+sfh$Zone_Category <- ifelse(sfh$Zone %in% planned_development, 
+                            "Planned Development", sfh$Zone_Category)
+sfh$Zone_Category <- ifelse(sfh$Zone %in% special_use, 
+                            "Special Use", sfh$Zone_Category)
+
+# Checking the result
+table(sfh$Zone_Category, useNA = 'always')
+
+
+#' ### Actual Year Builty vs Effective Year Built
+#'
+range(sfh$AYB)
+range(sfh$EYB)
+
+
+#' ### Assessed Total
+#' 
+hist(sfh$Assessed_Total)
+range(sfh$Assessed_Total)
+
+#' After inspecting the data, it appears that there are many data entry errors
+#' and includes golf clubs and other big area that we are less interseted in.
+#' Therefore we remove them from our observaitons.
+
+# checked 223 EAST GRAND AV: looks like a data errror
+# checked 35 EASTERN ST: it is a golf club
+# checked 1435 QUINNIPIAC AV: no information, 
+# but it appears that refers to an entire set of apartments or properties
+# checked 382 FERRY ST: this looks like data entry error
+head(sfh[sfh$Assessed_Total > 1000000, ])
+
+
+# We delete anything that costs more than 1M
+sfh <- sfh[sfh$Assessed_Total < 1000000, ]
+
+#' We look at the distribution of Assessed Total again
+#' Looks great
+hist(sfh$Assessed_Total)
+range(sfh$Assessed_Total)
+
+#' We further create a log of Assessed Total to ensure that it has a bell-shaped
+#' distribution. The distribution looks amazing!
+sfh$at_log <- log(sfh$Assessed_Total)
+hist(sfh$at_log)
+
+
+#' ## Exploratory Data Analysis
+#' 
+
+#' ###  Scatter plot: Bedrooms vs. Log-Assessed Total
+plot(sfh$Number_of_Bedroom, sfh$at_log, 
+     main = "Bedrooms vs Log-Assessed Total", 
+     xlab = "Number of Bedrooms", 
+     ylab = "Log-Assessed Total")
+
+#' ###  Scatter plot: Bathrooms vs. Log-Assessed Total
+plot(sfh$Number_of_Baths, sfh$at_log, 
+     main = "Baths vs Log-Assessed Total", 
+     xlab = "Number of Bathrooms", 
+     ylab = "Log-Assessed Total")
+
+#' ### Scatter plot: AYB (Actual Year Built) vs. Log-Assessed Total
+plot(sfh$AYB, sfh$at_log, 
+     main = "AYB vs Log-Assessed Total", 
+     xlab = "Actual Year Built", 
+     ylab = "Log-Assessed Total")
+
+#' ### Scatter plot: EYB (Effective Year Built) vs. Log-Assessed Total
+plot(sfh$EYB, sfh$at_log, 
+     main = "EYB vs Log-Assessed Total", 
+     xlab = "Actual Year Built", 
+     ylab = "Log-Assessed Total")
+
+#' ###  Boxplot: Log-Assessed Total by Condition Description
+boxplot(sfh$at_log ~ sfh$Condition_Description, 
+        main = "Boxplot of Log-Assessed Total by Condition", 
+        xlab = "Condition", 
+        ylab = "Log-Assessed Total")
+
+#' ###  Boxplot: Log-Assessed Total by Zone
+boxplot(sfh$at_log ~ sfh$Zone_Category, 
+        main = "Boxplot of Log-Assessed Total by Zone", 
+        xlab = "Zone", 
+        ylab = "Log-Assessed Total")
+
+#################################
+########### PETER END ###########
+#################################
+
+#' ### Grouping Property Zones in New Haven, CT
+#' 
+#' The property zones in New Haven, CT, can be categorized into broader categories based on their designations and usage. Here's a suggested grouping:
+#' 
+#' ### Grouping Property Zones in New Haven, CT
+#' 
+#' The property zones in New Haven, CT, can be categorized into broader categories 
+#' based on their designations and usage. Here's a suggested grouping:
+#' 
+#' 1. **Residential Zones**:
+#'    - `RS1`, `RS2`, `RS1/RS2`, `RM1`, `RM2`, `RM2/RS2`, `RH1`, `RH2`
+#'      # Includes single-family, multi-family, and high-density residential areas
+#' 
+#' 2. **Mixed-Use Zones**:
+#'    - `RO`, `BA/RM1`, `BA/RM2`, `BA/RS2`
+#'      # Zones allowing both residential and commercial use
+#' 
+#' 3. **Commercial Zones**:
+#'    - `BA`, `BA1`, `BB`, `BC`, `BD`, `BD1`
+#'      # Business, retail, and commercial areas
+#' 
+#' 4. **Industrial Zones**:
+#'    - `IL`, `IH`, `IH/RM2`
+#'      # Zones designated for light and heavy industrial activities
+#' 
+#' 5. **Planned Development Zones**:
+#'    - `PDD 119`, `PDD 26`, `PDD 39`, `PDD 49`, `PDD 52`, `PDU 102`, 
+#'      `PDU 106`, `PDU 108`, `PDU 16`, `PDU 72`, `PDU 75`, `PDU 95`
+#'      # Planned developments and units for specific projects
+#' 
+#' 6. **Special Use Zones**:
+#'    - `CEM`, `PARK`
+#'      # Parks, cemeteries, and other special-purpose areas
+
+#' 
+#' **Notes**: 
+#' - Categories such as `Residential`, `Commercial`, `Industrial`, and `Planned Development` follow typical urban zoning categorizations.
+#' - Some zones (e.g., `NA` values) are unspecified and may need further investigation to determine their appropriate category.
+#' 
+#' **Resources Used**: 
+#' - Standard zoning classifications and New Haven city zoning documentation (https://www.newhavenct.gov/government/departments-divisions/planning-and-zoning).
 
 
 
