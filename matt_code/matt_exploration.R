@@ -942,8 +942,21 @@ leaflet() %>%
 
 # Crop this for now
 sfh_cropped <- sfh[sfh$Assessed_Total < 5000000, ]
+
+
 plot(sfh_cropped$total_1_mile, log(sfh_cropped$Assessed_Total))
+
 plot(sfh_cropped$total_2_mile, log(sfh_cropped$Assessed_Total))
+
+# Guess: perhaps a greater proportion of convenience stores reduces value?
+# Observation: Maybe? Hard to tell.
+plot(sfh_cropped$count_Convenience_Store_2_miles/sfh_cropped$total_2_miles,
+     log(sfh_cropped$Assessed_Total))
+
+plot(sfh_cropped$count_Convenience_Store_1_mile/sfh_cropped$total_1_mile,
+     log(sfh_cropped$Assessed_Total))
+
+
 #' ### Grouping Property Zones in New Haven, CT
 #' 
 #' The property zones in New Haven, CT, can be categorized into broader categories based on their designations and usage. Here's a suggested grouping:
