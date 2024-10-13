@@ -40,9 +40,9 @@ library(sf)
 d <- st_read("../data/CT-parcel-data/4c5501b8-b68e-4888-bf6a-d92670d69c3b.gdb/")
 
 # For now, we drop the geometry for efficiency
-dng <- st_drop_geometry(d)
-saveRDS(dng, "dng.rds")
-d <- readRDS("dng.rds")
+# dng <- st_drop_geometry(d)
+# saveRDS(dng, "dng.rds")
+# d <- readRDS("dng.rds")
 
 #' ## Exploratory Data Analysis
 
@@ -275,18 +275,6 @@ apt_rows <- nrow(apt)
 cond_rows <- nrow(cond)
 
 sfh_rows + cond_rows
-
-
-
-# Not Affluent Areas vs Affluent Areas
-# STEP 1: Focus on (1) New Haven vs (2) Greenwich
-
-h <- d[d$State_Use == "101" | is.na(d$State_Use), ]
-table(h$State_Use, useNA = 'always')
-table(h$State_Use, h$Town_Name, useNA = 'always')
-
-# We need better startegies
-table(d$State_Use, d$Town_Name, useNA = 'always')
 
 
 #################################
@@ -702,7 +690,255 @@ boxplot(sfh$at_log ~ sfh$Zone_Category,
 #################################
 ########### PETER END ###########
 #################################
+#' # Identify ID/Uniqueness
+# Link looks to be the unique 'id' in the dataset
+!any(duplicated(sfh$Link))
+# There are no duplicates
+!any(duplicated(sfh$Location))
 
+#' ## SNAP Data
+#' Now, we load the SNAP data and explore distances
+s <- read.csv("../data/CT_SNAP_Authorized_Retailers_20240920.csv")
+
+# Convert to spatial
+sg <- st_as_sf(s, coords = c("Longitude", "Latitude"), crs = 4326, remove=FALSE)
+
+
+# sg$Store.Type <- gsub(" ", "_", sg$Store.Type)
+
+names(sg)
+# Visualize
+library(leaflet)
+
+pal <- colorFactor(
+  palette = c("red", "blue", "green", "orange", "purple", "cyan", "brown"),
+  domain = sg$Store.Type
+)
+
+# Leaflet requires lat/lng coordinates in shapes
+# We therefore convert sfh from pseudo mercator to lat lng
+sfh <- st_transform(sfh, crs = 4326)
+
+names(sfh)
+# Create the Leaflet map
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  # Center on New Haven
+  setView(lng = -72.93, lat = 41.32, zoom = 14) %>%
+  # Add sfh homes
+  addPolygons(data = sfh,
+              color = "black",
+              weight = 1,
+              fillColor = "transparent",
+              popup = ~paste("Location:", Location,
+                             "<br>State Use: ", State_Use_Description),
+              group = "Homes") %>%
+  # Add stores, colored by type
+  addCircleMarkers(data = sg,
+                   radius = 3,
+                   color = ~pal(Store.Type),
+                   stroke = TRUE,
+                   weight = 1,
+                   fillOpacity = 0.8,
+                   popup = ~paste0("Store: ", Store.Name, 
+                                   "<br>Type: ", Store.Type),
+                   group = "Stores") %>%
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = sg$Store.Type,
+    title = "Store Types",
+    opacity = 1
+  )
+
+#' ### Reduce Categories
+sg$Store.Type.Grouped <- "Other"
+
+sg$Store.Type.Grouped[sg$Store.Type == "Convenience Store"] <- "Convenience Store"
+
+sg$Store.Type.Grouped[sg$Store.Type == "Grocery Store"] <- "Grocery Store"
+
+sg$Store.Type.Grouped[sg$Store.Type %in% c("Supermarket", "Super Store")] <- "Supermarket_store"
+
+#' ### Reduce Scope to Nearby Stores
+# Found via Google Maps, cross referencing with Leaflet plot
+min_lon <- -73.06
+max_lon <- -72.78
+min_lat <- 41.12
+max_lat <- 41.39
+
+names(sg)
+sg_nh <- sg[((sg$Longitude > min_lon) & (sg$Longitude < max_lon) & 
+              (sg$Latitude > min_lat) & (sg$Latitude < max_lat)), ]
+
+#' ### Sanity Check, Replot
+palGrouped <- colorFactor(
+  palette = c("red", "green", "orange", "brown"),
+  domain = sg_nh$Store.Type.Grouped
+)
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  # Center on New Haven
+  setView(lng = -72.93, lat = 41.32, zoom = 14) %>%
+  # Add sfh homes
+  addPolygons(data = sfh,
+              color = "black",
+              weight = 1,
+              fillColor = "transparent",
+              popup = ~paste("Location:", Location,
+                             "<br>State Use: ", State_Use_Description),
+              group = "Homes") %>%
+  # Add stores, colored by type
+  addCircleMarkers(data = sg_nh,
+                   radius = 3,
+                   color = ~palGrouped(Store.Type.Grouped),
+                   stroke = TRUE,
+                   weight = 1,
+                   fillOpacity = 0.8,
+                   popup = ~paste0("Store: ", Store.Name, 
+                                   "<br>Type: ", Store.Type),
+                   group = "Stores") %>%
+  addLegend(
+    position = "bottomright",
+    pal = palGrouped,
+    values = sg_nh$Store.Type.Grouped,
+    title = "Store Types",
+    opacity = 1
+  )
+
+#' ## Distance Calculations
+# Now, we transform back to WGS 84 Mercator so calculations are in meters
+sfh <- st_transform(sfh, crs = 3857)
+sg_nh <- st_transform(sg_nh, crs = 3857)
+
+#' ## Closest Distanced Types
+# Define the store types to analyze
+target_store_types <- unique(sg_nh$Store.Type.Grouped)
+
+# Initialize distance and area columns for each target store type
+for (type in target_store_types) {
+  
+  # Define column names for distance and area
+  dist_col <- paste0("dist_", type)
+  
+  # Subset SNAP retailers of the current Store Type
+  stores_type <- sg_nh[sg_nh$Store.Type == type, ]
+  
+  # Find the nearest store of the current type for each home
+  nearest_store_indices <- st_nearest_feature(sfh, stores_type)
+  
+  # Calculate distances to the nearest store
+  distances <- st_distance(sfh, 
+                           stores_type[nearest_store_indices, ], 
+                           by_element = TRUE)
+  
+  # Assign distances to the home data (convert to numeric, e.g., meters)
+  sfh[[dist_col]] <- as.numeric(distances)
+}
+
+#' Calculate Number Within Distance
+
+# We set these because they are used by the USDA to define deserts
+d1_mile <- 1609    # ~1 mile in meters
+d2_miles <-  3218 # ~2 miles in meters
+d10_miles <- 16090 # ~10 miles in meters
+
+count_stores_within <- function(homes, stores, distance) {
+  # Initialize a data frame to store counts
+  counts_df <- data.frame(Link = homes$Link)
+  
+  # Iterate over each Store.Type.Grouped category
+  unique_types <- unique(stores$Store.Type.Grouped)
+  
+  for(type in unique_types) {
+    # Subset stores of the current type
+    stores_subset <- stores[stores$Store.Type.Grouped == type, ]
+    
+    # Calculate the distance matrix (homes x stores_subset)
+    dist_matrix <- st_distance(homes, stores_subset, by_element = FALSE)
+    
+    # Count the number of stores within the distance for each home
+    counts <- apply(dist_matrix, 1, function(x) sum(x <= distance))
+    
+    # Add the counts to the data frame with a descriptive column name
+    column_name <- paste0("count_", gsub(" ", "_", type), "_", 
+                          ifelse(distance == d1_mile, 
+                                 "1_mile", 
+                                 ifelse(distance == d2_miles, 
+                                        "2_miles", 
+                                        "10_miles")))
+    counts_df[[column_name]] <- counts
+  }
+  
+  return(counts_df)
+}
+
+# 7. Apply the counting function for 1 mile and 10 miles
+counts_1_mile <- count_stores_within(sfh, sg_nh, d1_mile)
+counts_2_miles <- count_stores_within(sfh, sg_nh, d2_miles)
+counts_10_miles <- count_stores_within(sfh, sg_nh, d10_miles)
+
+
+sfh <- cbind(sfh, counts_1_mile[,-1], counts_2_miles[,-1], counts_10_miles[,-1])
+
+
+#' One Last Leaflet (Check If Numbers Make Sense)
+sg_nh <- st_transform(sg_nh, crs = 4326)
+sfh <- st_transform(sfh, crs = 4326)
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  # Center on New Haven
+  setView(lng = -72.93, lat = 41.32, zoom = 14) %>%
+  # Add sfh homes
+  addPolygons(data = sfh,
+              color = "black",
+              weight = 1,
+              fillColor = "transparent",
+              popup = ~paste("Location:", Location,
+                             "<br>State Use: ", State_Use_Description,
+                             "<br>1 Mile Convenience: ", 
+                             count_Convenience_Store_1_mile,
+                             "<br>1 Mile Supermarket/store: ", 
+                             count_Supermarket_store_1_mile,
+                             "<br>1 Mile Other: ", count_Other_1_mile,
+                             "<br>1 Mile Grocery: ", 
+                             count_Grocery_Store_1_mile,
+                             "<br>2 Mile Convenience: ", 
+                             count_Convenience_Store_2_miles,
+                             "<br>2 Mile Supermarket/store: ", 
+                             count_Supermarket_store_2_miles,
+                             "<br>2 Mile Other: ", count_Other_2_miles,
+                             "<br>2 Mile Grocery: ", 
+                             count_Grocery_Store_2_miles,
+                             "<br>10 Mile Convenience: ", 
+                             count_Convenience_Store_2_miles,
+                             "<br>10 Mile Supermarket/store: ", 
+                             count_Supermarket_store_2_miles,
+                             "<br>10 Mile Other: ", count_Other_2_miles,
+                             "<br>10 Mile Grocery: ", 
+                             count_Grocery_Store_2_miles),
+              group = "Homes") %>%
+  # Add stores, colored by type
+  addCircleMarkers(data = sg_nh,
+                   radius = 3,
+                   color = ~palGrouped(Store.Type.Grouped),
+                   stroke = TRUE,
+                   weight = 1,
+                   fillOpacity = 0.8,
+                   popup = ~paste0("Store: ", Store.Name, 
+                                   "<br>Type: ", Store.Type),
+                   group = "Stores") %>%
+  addLegend(
+    position = "bottomright",
+    pal = palGrouped,
+    values = sg_nh$Store.Type.Grouped,
+    title = "Store Types",
+    opacity = 1
+  )
+
+# Crop this for now
+sfh_cropped <- sfh[sfh$Assessed_Total < 5000000, ]
+plot(sfh_cropped$Assessed_Total, log(sfh_cropped$count_Convenience_Store_1_mile))
 #' ### Grouping Property Zones in New Haven, CT
 #' 
 #' The property zones in New Haven, CT, can be categorized into broader categories based on their designations and usage. Here's a suggested grouping:
