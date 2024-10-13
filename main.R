@@ -43,6 +43,10 @@
 #' lead to less case-by-case inspections of state use descriptions.
 #' 
 
+# Load libraries
+library(sf)
+library(leaflet)
+
 # Load CT parcel data
 d <- st_read("data/CT-parcel-data/4c5501b8-b68e-4888-bf6a-d92670d69c3b.gdb/")
 
@@ -169,10 +173,10 @@ dim(sfh)
 # Explore extremes of assessed total
 head(st_drop_geometry(sfh[order(sfh$Assessed_Total, decreasing = T), 
                           c("Link", "Owner", "Location", "Assessed_Total", 
-                            "State_Use_Description")]), 10)
+                            "State_Use_Description")]), 12)
 tail(st_drop_geometry(sfh[order(sfh$Assessed_Total, decreasing = T), 
                           c("Link", "Owner", "Location", "Assessed_Total", 
-                            "State_Use_Description")]), 10)
+                            "State_Use_Description")]), 12)
 
 #' 
 #' Examining the higher end of assessed total values, "358 SPRINGSIDE AV" stands
@@ -182,11 +186,8 @@ tail(st_drop_geometry(sfh[order(sfh$Assessed_Total, decreasing = T),
 #' first of the three buildings, which indeed is a single-family home, based on
 #' cross-referencing the Vision Appraisal database. Similarly,
 #' "223 EAST GRAND AV" corresponds to a plot of land with a collection of 3 
-#' buildings belonging to a religious society. Although not in the list of 
-#' high assessed totals, we found through trial and error that "156 COVE ST"
-#' suffered from the same issue of multiple buildings in the same area of land.
-#' Therefore, these 3 properties shouldn't be considered in our subset of 
-#' single-family homes.
+#' buildings belonging to a religious society. Therefore, these 2 properties 
+#' shouldn't be considered in our subset of single-family homes.
 #' 
 #' The lower end of assessed total values, on the other hand, were confirmed
 #' through Vision Appraisal and appears to be in part due to severe
@@ -209,13 +210,56 @@ st_drop_geometry(sfh[is.na(sfh$Occupancy), c("Owner", "Location")])
 # st_drop_geometry(sfh[which(sfh$Occupancy >= 4), ])
 
 #' 
-#' We also checked for any duplicate listings and found that
+#' We also checked for any duplicate listings and found that there were two
+#' properties at each of "1 RESERVOIR ST" and "115 CRANSTON ST". When
+#' cross-referenced with Vision Appraisal, we found that the two properties
+#' located at "1 RESERVOIR ST" correspond to two separate single-family homes.
+#' In contrast, the two properties at "115 CRANSTON ST" refer to the same home,
+#' based on the photos provided by Vision Appraisal, with one of the entries
+#' containing incorrect information (0s for all room-related columns) which
+#' should be removed.
 #'
+
+# List locations with more than one property
+sfh[which(duplicated(sfh$Location)), ]$Location
+
+# Inspect corresponding properties, commented out for brevity
+# sfh[which(sfh$Location %in% c("1 RESERVOIR ST", "115 CRANSTON ST")), ]
+
+#'
+#' As a sanity check, we also plotted the properties superimposed on a map of
+#' New Haven leveraging their shapefiles. We then inspected any properties that
+#' were unusually large and checked Vision Appraisal, revealing several more
+#' areas of land with multiple buildings' assessments represented by only one of
+#' the properties.
+#'
+
+# Convert to latitude/longitude
+sfh <- st_transform(sfh, crs = 4326)
+
+# Map plot
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  
+  # Center on New Haven
+  setView(lng = -72.93, lat = 41.30, zoom = 12) %>%
+  
+  # Add sfh homes
+  addPolygons(data = sfh,
+              color = "black",
+              weight = 1,
+              fillColor = "black",
+              popup = ~paste("Location:", Location,
+                             "<br>State Use: ", State_Use_Description),
+              group = "Homes")
 
 
 # Remove properties that aren't single-family and incorrect duplicate
 to_exclude <- c("52070-392 1188 00101", "52070-094 0999 02600", 
-                "52070-033 0868 00900", "52070-142 1060 01400")
+                "52070-033 0868 00900", "52070-102 1030 00100", 
+                "52070-280 0249 02701", "52070-142 1060 01400", 
+                "52070-125 1039 01341", "52070-098 1001 00200",
+                "52070-024 0920 02800")
 sfh_final <- sfh[which(!(sfh$Link %in% to_exclude)), ]
 
 
@@ -290,19 +334,185 @@ plot(sfh_final$Sqrt_Effective_Area, sfh_final$Log_Assessed_Total)
 #' equal to 0 and has NA values. We inspect further to find out
 #' what these properties are.
 #' 
-#' Since properties with 0 number of beds are small, we manually check
+#' Since properties with 0 number of bedrooms are small, we manually check
 #' every property. After cross-checking with Vision Appraisal, it appears
 #' that some missing values have been converted to 0. We fix the values for
 #' these properties as we expect single-family homes to have at least 1
-#' bedroom unless they are studios.
+#' bedroom unless they are studios such as the properties located at
+#' "34 BURTON ST" and "132 COVE ST", using sites like Zillow, Redfin, and 
+#' Realtor as references.
 #'
 
+# Get table of bedroom counts
 table(sfh_final$Number_of_Bedroom, useNA = "always")
 
-# 34 BURTON ST, 132 COVE ST - studio
+# Identify properties with 0 or missing number of bedrooms
+st_drop_geometry(sfh_final[which(sfh_final$Number_of_Bedroom == 0 |
+                                 is.na(sfh_final$Number_of_Bedroom)), 
+                           c("Owner", "Location", "Number_of_Bedroom",
+                             "Number_of_Baths", "Number_of_Half_Baths")])
+bedroom_rows <- row.names(sfh_final[which(sfh_final$Number_of_Bedroom == 0 |
+                                    is.na(sfh_final$Number_of_Bedroom)), ])
+corrected_bedrooms <- c(0, 0, 1, 3, 6, 4)
+sfh_final[bedroom_rows, "Number_of_Bedroom"] <- corrected_bedrooms
+
+# Plot vs. log assessed total
+plot(sfh_final$Number_of_Bedroom, sfh_final$Log_Assessed_Total)
+
+
+#'
+#' We repeat the same procedure for the number of bathrooms and half bathrooms.
+#' Since there are more than 4000 properties listed with 0 half bathrooms, we
+#' will focus on missing values since it would be impractical to check for
+#' true 0 half bathrooms and distinguish them from artifacts of missingness.
+#'
+
+# Get table of bathroom counts
+table(sfh_final$Number_of_Baths, useNA = "always")
+
+# Identify properties with 0 or missing number of bathrooms
+st_drop_geometry(sfh_final[which(sfh_final$Number_of_Baths == 0 |
+                                   is.na(sfh_final$Number_of_Baths)), 
+                           c("Owner", "Location", "Number_of_Bedroom", 
+                             "Number_of_Baths", "Number_of_Half_Baths")])
+bath_rows <- row.names(sfh_final[which(sfh_final$Number_of_Baths == 0 |
+                                       is.na(sfh_final$Number_of_Baths)), ])
+
+# 1395 CHAPEL ST does not have any information about number of bathrooms
+# Replace 0 with NA to reflect missingness
+corrected_baths <- c(2, 0, 2, 1, 2, 2, NA)
+sfh_final[bath_rows, "Number_of_Baths"] <- corrected_baths
+
+# Get table of half bathroom counts
+table(sfh_final$Number_of_Half_Baths, useNA = "always")
+
+# Identify properties with missing half bathroom counts
+# Show first few rows for brevity
+head(st_drop_geometry(sfh_final[which(is.na(sfh_final$Number_of_Half_Baths)), 
+                           c("Owner", "Location", "Number_of_Bedroom", 
+                             "Number_of_Baths", "Number_of_Half_Baths")]))
+half_bath_rows <- row.names(sfh_final[which(is.na(
+                                      sfh_final$Number_of_Half_Baths)), ])
+corrected_half_baths <- c(1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 
+                          0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1,
+                          1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0)
+sfh_final[half_bath_rows, "Number_of_Half_Baths"] <- corrected_half_baths
+
+# Create total bathrooms variable
+sfh_final$Number_of_Baths_Total <- sfh_final$Number_of_Baths + 
+                                   0.5 * sfh_final$Number_of_Half_Baths
+
+# Plot vs. log assessed total
+plot(sfh_final$Number_of_Baths_Total, sfh_final$Log_Assessed_Total)
+
+
+#'
+#' Next, we inspect property condition, observing there is a nice 1-to-1
+#' correspondence between conditions and their descriptions.
+#'
+
+# Table of condition and descriptions
+table(sfh_final$Condition, sfh_final$Condition_Description, useNA = "always")
+
+#' 
+#' There are two properties with condition listed as "U". Inspecting these
+#' locations in Vision Appraisal, it's likely that "U" represents Unknown or 
+#' Unspecified as the condition data field is missing on Vision Appraisal.
+#' Using Redfin, we replace these unknown conditions.
+#' 
+
+# Substitute with Redfin's condition data
+unk_cond_rows <- row.names(sfh_final[which(sfh_final$Condition == "U"), ])
+sfh_final[unk_cond_rows, "Condition"] <- c("A", "A")
+sfh_final[unk_cond_rows, "Condition_Description"] <- c("Average", "Average")
+
+#' 
+#' We also see there is a condition listed as "F" with description "F". We
+#' initially thought this may correspond to "Fair", and so to justify this we
+#' made boxplots grouped by condition. We should expect the mean log assessed
+#' total to increase with "better" condition levels.
+#' 
+
+# Boxplot of log assessed total by condition
+boxplot(Log_Assessed_Total ~ factor(Condition, 
+                                    levels = c("VP", "P", "F", "A", "G", 
+                                               "VG", "E")), 
+        xlab = "Condition", data = sfh_final)
+
+# Update description to fair
+sfh_final[which(sfh_final$Condition == "F"), "Condition_Description"] <- "Fair"
+
+# We'll use condition description so that our model summaries later are easier
+# to read and interpret
+# Convert condition description to a factor and set "Average" as the reference
+sfh_final$Condition_Description <- as.factor(sfh_final$Condition_Description)
+sfh_final$Condition_Description <- relevel(sfh_final$Condition_Description,
+                                           ref = "Average")
+
+#' 
+#' Next, we take a closer look at zoning districts. Because there are so many
+#' different zones, with many only corresponding to a handful of homes, we
+#' decided to group them based on their descriptions into five broader
+#' categories that represent their overall use: Residential, Mixed-Use,
+#' Commercial, Industrial, and Planned Development. The result is a more
+#' interpretable categorical variable. To achieve this, we referred
+#' to Article II of New Haven's Zoning Ordinances available on the
+#' [Municode Library](https://library.municode.com/ct/new_haven/codes/zoning?nodeId=ZOOR_ARIIESDIZOMA).
+#' 
+
+# Table of zone counts
+table(sfh_final$Zone)
+
+# Define broader groupings based on zone descriptions
+residential <- c("RS1", "RS2", "RS1/RS2", "RM1", "RM2", "RM2/RS2", "RH1", "RH2")
+mixed_use <- c("RO", "BA/RM1", "BA/RM2", "BA/RS2", "CEM")
+commercial <- c("BA", "BA1", "BB", "BC", "BD", "BD1")
+industrial <- c("IL", "IH", "IH/RM2")
+planned_development <- c("PDD 119", "PDD 26", "PDD 39", "PDD 49", "PDD 52", 
+                         "PDU 102", "PDU 106", "PDU 108", "PDU 16", "PDU 72", 
+                         "PDU 75", "PDU 95")
+
+# Assign zone categories
+sfh_final$Zone_Category <- ifelse(sfh_final$Zone %in% residential, 
+                                  "Residential", NA)
+sfh_final$Zone_Category <- ifelse(sfh_final$Zone %in% mixed_use, 
+                                  "Mixed-Use", sfh_final$Zone_Category)
+sfh_final$Zone_Category <- ifelse(sfh_final$Zone %in% commercial, 
+                                  "Commercial", sfh_final$Zone_Category)
+sfh_final$Zone_Category <- ifelse(sfh_final$Zone %in% industrial, 
+                                  "Industrial", sfh_final$Zone_Category)
+sfh_final$Zone_Category <- ifelse(sfh_final$Zone %in% planned_development, 
+                                  "Planned", 
+                                  sfh_final$Zone_Category)
+
+# Convert to factor, set "Residential" as reference
+sfh_final$Zone_Category <- as.factor(sfh_final$Zone_Category)
+sfh_final$Zone_Category <- relevel(sfh_final$Zone_Category, ref = "Residential")
+
+# Boxplot of log assessed total by zone category
+boxplot(Log_Assessed_Total ~ Zone_Category, data = sfh_final, cex.axis = 0.8, 
+        las = 2, xlab = "")
+
+#'
+#' Lastly, we create the effective age variable.
+#'
+
+# Check for missing effective year built
+sum(is.na(sfh_final$EYB))
+
+# Create effective age variable and plot against log assessed total
+sfh_final$Effective_Age <- 2024 - sfh_final$EYB
+plot(sfh_final$Effective_Age, sfh_final$Log_Assessed_Total)
+
 
 #' 
 #' ## Food Access Features
+#' 
+#' To create meaningful and interpretable features related to proximity to food,
+#' we took two approaches to the idea of proximity:
+#' 
+#' 1. Distance to nearest food retailers
+#' 2. Number of food retailers within some radius
 #' 
 
 # Load SNAP data
@@ -310,34 +520,228 @@ s <- read.csv("data/CT_SNAP_Authorized_Retailers_20240920.csv")
 
 # Convert to spatial
 sg <- st_as_sf(s, coords = c("Longitude", "Latitude"), crs = 4326, remove=FALSE)
+sfh_final <- st_transform(sfh_final, crs = 4326)
 
+# Visualize store locations, superimposed on New Haven map and geometries of
+# single-family homes in our subset
+pal <- colorFactor(
+  palette = c("red", "blue", "green", "orange", "purple", "cyan", "brown"),
+  domain = sg$Store.Type
+)
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  
+  # Center on New Haven
+  setView(lng = -72.93, lat = 41.32, zoom = 13) %>%
+  
+  # Add sfh homes
+  addPolygons(data = sfh_final,
+              color = "black",
+              weight = 1,
+              fillColor = "transparent",
+              popup = ~paste("Location:", Location,
+                             "<br>State Use: ", State_Use_Description),
+              group = "Homes") %>%
+  
+  # Add stores, colored by type
+  addCircleMarkers(data = sg,
+                   radius = 3,
+                   color = ~pal(Store.Type),
+                   stroke = TRUE,
+                   weight = 1,
+                   fillOpacity = 0.8,
+                   popup = ~paste0("Store: ", Store.Name, 
+                                   "<br>Type: ", Store.Type),
+                   group = "Stores") %>%
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = sg$Store.Type,
+    title = "Store Types",
+    opacity = 1
+  )
+
+#'
+#' Certain store types like specialty stores are relatively infrequent.
+#' Moreover, we could technically consider super stores and supermarkets
+#' together, since we can view super stores as extensions of supermarkets that
+#' happen to include non-food items as well. As a result, we decided to group
+#' super stores and supermarkets together, leave convenience stores and
+#' grocery stores as is as separate groups, and bucket the rest into "Other."
+#' 
+
+# View counts by store type
+table(sg$Store.Type)
+
+# Create store type groups
+sg$Store.Type.Grouped <- "Other"
+sg$Store.Type.Grouped[sg$Store.Type == "Convenience Store"] <- "Convenience Store"
+sg$Store.Type.Grouped[sg$Store.Type == "Grocery Store"] <- "Grocery Store"
+sg$Store.Type.Grouped[sg$Store.Type %in% 
+                      c("Supermarket", "Super Store")] <- "Supermarket_store"
+
+# Re-visualize with new groups
+palGrouped <- colorFactor(
+  palette = c("red", "green", "orange", "cyan"),
+  domain = sg$Store.Type.Grouped
+)
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  
+  # Center on New Haven
+  setView(lng = -72.93, lat = 41.32, zoom = 13) %>%
+  
+  # Add sfh homes
+  addPolygons(data = sfh_final,
+              color = "black",
+              weight = 1,
+              fillColor = "black",
+              popup = ~paste("Location:", Location,
+                             "<br>State Use: ", State_Use_Description),
+              group = "Homes") %>%
+  
+  # Add stores, colored by type
+  addCircleMarkers(data = sg,
+                   radius = 3,
+                   color = ~palGrouped(Store.Type.Grouped),
+                   stroke = TRUE,
+                   weight = 1,
+                   fillOpacity = 0.8,
+                   popup = ~paste0("Store: ", Store.Name, 
+                                   "<br>Type: ", Store.Type),
+                   group = "Stores") %>%
+  addLegend(
+    position = "bottomright",
+    pal = palGrouped,
+    values = sg$Store.Type.Grouped,
+    title = "Store Types",
+    opacity = 1
+  )
+
+
+#'
+#' For our first approach to "proximity", we compute the distance in meters
+#' to the nearest store of each grouped store type we defined earlier.
+#'
+
+# Transform back to WGS 84 Mercator so calculations are in meters
+sfh_final <- st_transform(sfh_final, crs = 3857)
+sg <- st_transform(sg, crs = 3857)
+
+# Define the store types to analyze
+target_store_types <- unique(sg$Store.Type.Grouped)
+
+# Initialize distance and area columns for each target store type
+for (type in target_store_types) {
+  
+  # Define column names for distance and area
+  dist_col <- paste0("dist_", type)
+  
+  # Subset SNAP retailers of the current Store Type
+  stores_type <- sg[sg$Store.Type.Grouped == type, ]
+  
+  # Find the nearest store of the current type for each home
+  nearest_store_indices <- st_nearest_feature(sfh_final, stores_type)
+  
+  # Calculate distances to the nearest store
+  distances <- st_distance(sfh_final, 
+                           stores_type[nearest_store_indices, ], 
+                           by_element = TRUE)
+  
+  # Assign distances to the home data (convert to numeric, e.g., meters)
+  sfh_final[[dist_col]] <- as.numeric(distances)
+}
+
+# Plot new distance features vs. log assessed total
+plot(sfh_final$dist_Supermarket_store, sfh_final$Log_Assessed_Total)
+plot(sfh_final$`dist_Convenience Store`, sfh_final$Log_Assessed_Total)
+plot(sfh_final$`dist_Grocery Store`, sfh_final$Log_Assessed_Total)
+plot(sfh_final$dist_Other, sfh_final$Log_Assessed_Total)
+
+#'
+#' Comment what we observe
+#' 
+#' For our second approach, we calculate the total number of stores present
+#' within a 1 mile, 2 mile, and 10 mile radius for each property. We chose
+#' these radii because they are used by the USDA to define food deserts.
+#' 
+
+# Compute distance matrix
+dist_matrix <- st_distance(sfh_final, sg, by_element = FALSE)
+
+# ~1 mi = 1609 m, ~2 mi = 3218 m, and ~10 mi = 16090 m
+radii_labels <- c("1_mile", "2_miles", "10_miles")
+radii_meters <- c(1609, 3218, 16090)
+
+for (i in 1:3) {
+  # Count the number of stores within the distance for each home
+  counts <- apply(dist_matrix, 1, function(x) sum(x <= radii_meters[i]))
+  
+  # Add the counts to the data frame with a descriptive column name
+  column_name <- paste0("total_", radii_labels[i])
+  sfh_final[[column_name]] <- counts
+}
+
+# Plot new count features vs. log assessed total
+plot(sfh_final$total_1_mile, sfh_final$Log_Assessed_Total)
+plot(sfh_final$total_2_miles, sfh_final$Log_Assessed_Total)
+plot(sfh_final$total_10_miles, sfh_final$Log_Assessed_Total)
+
+#'
+#' Comment what we observe
+#'
 
 
 #' 
 #' # Modeling
 #' ## Baseline Model
 #' 
+#' Make sure to explain what we're doing here, add commentary throughout
+#' 
 
 # Fit baseline model
 m1 <- lm(Log_Assessed_Total ~ Sqrt_Effective_Area + Number_of_Bedroom + 
-         Total_Bathrooms + Condition + Zone_Grouped + Effective_Age, 
-         data = sfh_final)
+         Number_of_Baths_Total + Condition_Description + Zone_Category + 
+         Effective_Age, data = sfh_final)
+
+# Check model summary
 summary(m1)
 
 # Diagnostic plots
+par(mfrow = c(2, 2))
+par(mar = c(4, 4, 1.5, 1.5)) 
+plot(m1, cex.lab = 0.8)
 
 #' 
 #' ## Proposed Model
 #' 
+#' Make sure to explain what we're doing here, add commentary throughout
+#' 
 
 # Fit proposed model with food access features
-m2 <- lm()
+m2 <- lm(Log_Assessed_Total ~ Sqrt_Effective_Area + Number_of_Bedroom + 
+         Number_of_Baths_Total + Condition_Description + Zone_Category + 
+         Effective_Age + `dist_Convenience Store` + dist_Other + 
+         `dist_Grocery Store` + dist_Supermarket_store + total_1_mile + 
+         total_2_miles + total_10_miles, data = sfh_final)
+
+# Check model summary
+summary(m2)
 
 # Diagnostic plots
+par(mfrow = c(2, 2))
+par(mar = c(4, 4, 1.5, 1.5)) 
+plot(m2, cex.lab = 0.8)
 
 # Model comparison
 anova(m1, m2)
 
 #' 
 #' # Conclusion
+#' 
+#' Make sure to mention limitations, takeaways
+#' Maybe a future suggestion would be to take spatial clustering of regions
+#' into account
+#' Multicollinearity - how could we address this since we're interested in inference
+#' 
 #' 
