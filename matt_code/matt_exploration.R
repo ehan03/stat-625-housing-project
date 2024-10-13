@@ -850,6 +850,8 @@ count_stores_within <- function(homes, stores, distance) {
   # Iterate over each Store.Type.Grouped category
   unique_types <- unique(stores$Store.Type.Grouped)
   
+  mile_type <- ifelse(distance == d1_mile, "1_mile", 
+                      ifelse(distance == d2_miles, "2_miles", "10_miles"))
   for(type in unique_types) {
     # Subset stores of the current type
     stores_subset <- stores[stores$Store.Type.Grouped == type, ]
@@ -862,13 +864,12 @@ count_stores_within <- function(homes, stores, distance) {
     
     # Add the counts to the data frame with a descriptive column name
     column_name <- paste0("count_", gsub(" ", "_", type), "_", 
-                          ifelse(distance == d1_mile, 
-                                 "1_mile", 
-                                 ifelse(distance == d2_miles, 
-                                        "2_miles", 
-                                        "10_miles")))
+                          mile_type)
     counts_df[[column_name]] <- counts
   }
+  
+  total_col_name <- paste0("total_", mile_type)
+  counts_df[[total_col_name]] <- rowSums(counts_df[, -1])
   
   return(counts_df)
 }
@@ -896,6 +897,7 @@ leaflet() %>%
               fillColor = "transparent",
               popup = ~paste("Location:", Location,
                              "<br>State Use: ", State_Use_Description,
+                             "<br>1 Mile Total: ", total_1_mile,
                              "<br>1 Mile Convenience: ", 
                              count_Convenience_Store_1_mile,
                              "<br>1 Mile Supermarket/store: ", 
@@ -903,6 +905,7 @@ leaflet() %>%
                              "<br>1 Mile Other: ", count_Other_1_mile,
                              "<br>1 Mile Grocery: ", 
                              count_Grocery_Store_1_mile,
+                             "<br>2 Mile Total: ", total_2_miles,
                              "<br>2 Mile Convenience: ", 
                              count_Convenience_Store_2_miles,
                              "<br>2 Mile Supermarket/store: ", 
@@ -910,6 +913,7 @@ leaflet() %>%
                              "<br>2 Mile Other: ", count_Other_2_miles,
                              "<br>2 Mile Grocery: ", 
                              count_Grocery_Store_2_miles,
+                             "<br>10 Mile Total: ", total_10_miles,
                              "<br>10 Mile Convenience: ", 
                              count_Convenience_Store_2_miles,
                              "<br>10 Mile Supermarket/store: ", 
@@ -938,7 +942,8 @@ leaflet() %>%
 
 # Crop this for now
 sfh_cropped <- sfh[sfh$Assessed_Total < 5000000, ]
-plot(sfh_cropped$Assessed_Total, log(sfh_cropped$count_Convenience_Store_1_mile))
+plot(sfh_cropped$total_1_mile, log(sfh_cropped$Assessed_Total))
+plot(sfh_cropped$total_2_mile, log(sfh_cropped$Assessed_Total))
 #' ### Grouping Property Zones in New Haven, CT
 #' 
 #' The property zones in New Haven, CT, can be categorized into broader categories based on their designations and usage. Here's a suggested grouping:
