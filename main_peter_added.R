@@ -697,31 +697,34 @@ abline(otdist_ls, col = "red")
 #' 
 #' **Peter Added (Comment what we observe)** 
 #' 
-#' Our analysis shows that there is a weak positive relationship between the 
-#' distance to stores and the log of the total assessed value of properties, 
-#' with the strongest positive relationship observed for supermarkets. For stores
-#' classified as "other," the relationship appears much weaker, with no clear 
-#' linear pattern. These findings suggest that proximity to supermarkets might 
-#' not always result in higher property values.
+#' Our analysis reveals a weak positive relationship between proximity to stores 
+#' and the log of the total assessed value of single-family homes, with the 
+#' strongest relationship observed for supermarkets. Interestingly, for stores 
+#' classified as "other," the relationship appears much weaker and lacks a clear 
+#' linear trend. These findings are surprising, as we initially expected closer 
+#' proximity to food retailers—especially supermarkets—to be associated with 
+#' higher property values.
 #' 
-#' While living close to a supermarket may offer convenience, it also brings 
-#' potential downsides like traffic, noise, and higher crime rates. Expensive 
-#' properties are often located in more secluded areas with fewer stores nearby. 
-#' Residents in these affluent neighborhoods may prefer upscale restaurants over 
-#' grocery stores, which may reduce the value placed on proximity to 
-#' supermarkets.
+#' One possible explanation could be that while living close to a supermarket 
+#' offers convenience, it may also bring downsides, such as increased traffic, 
+#' noise, and higher crime rates. Homes with higher assessed values are often 
+#' found in more secluded areas with fewer stores. In affluent neighborhoods, 
+#' residents may value privacy and prefer upscale dining options rather than 
+#' frequenting nearby grocery stores, which could reduce the impact of store 
+#' proximity on property values.
 #' 
-#' Additionally, economic factors likely play a role. Operating grocery stores 
-#' in expensive areas can be financially challenging due to high operating costs, 
-#' making it difficult for such businesses to survive. Even upscale stores, like 
-#' Foxtrot and Erewhon, face these challenges, leading to store closures in some 
-#' affluent areas.
+#' Additionally, economic challenges may influence this dynamic. Grocery stores 
+#' in expensive areas face high operating costs, which can make them 
+#' unsustainable. Even upscale retailers like Foxtrot and Erewhon have faced 
+#' closures in affluent areas due to these challenges.
 #' 
-#' Overall, our results suggest that the impact of store proximity on property 
-#' values is complex and depends on a variety of factors, including neighborhood 
-#' affluence and the type of store. This relationship requires a nuanced 
-#' understanding that goes beyond simple distance measures.
-#' 
+#' Overall, the relationship between store proximity and property values seems 
+#' more complex than we initially thought. Factors like neighborhood affluence, 
+#' store types, and other socioeconomic conditions likely influence the effect 
+#' of proximity, and further analysis is needed to fully understand these 
+#' dynamics.
+
+
 
 # Compute distance matrix
 dist_matrix <- st_distance(sfh_final, sg, by_element = FALSE)
@@ -766,30 +769,31 @@ abline(mile10_ls, col = "red")
 #' **Peter Added: Comment what we observe**
 #' 
 #' Our analysis of the number of stores within specified radii reveals an 
-#' interesting pattern: there appears to be a zero to negative association 
-#' between the total number of stores nearby and the log of the total assessed 
-#' value of single-family homes. This pattern holds across 1-mile, 2-mile, and 
-#' 10-mile radii.
+#' unexpected pattern: there is a zero to negative association between the 
+#' total number of stores nearby and the log of the total assessed value of 
+#' single-family homes. This pattern holds across the 1-mile, 2-mile, and 
+#' 10-mile radii, contrary to our initial hypothesis that more nearby stores 
+#' would be associated with higher property values. This trend is consistent 
+#' with earlier exploratory plots, reinforcing the recurring pattern.
 #' 
-#' These results are consistent with earlier findings. Areas with higher property
-#' values tend to have fewer nearby stores, reinforcing the idea that affluent
-#' neighborhoods may not support many retail businesses. The financial costs of 
-#' operating stores in these areas can be prohibitively high, leading to 
-#' challenges for retailers, especially those requiring high foot traffic or 
-#' lower margins.
+#' We had anticipated that a higher density of nearby stores, particularly 
+#' grocery stores, would increase convenience and thus be linked to higher 
+#' property values. However, the results suggest that areas with higher 
+#' property values tend to have fewer stores nearby. This could be attributed 
+#' to affluent neighborhoods valuing privacy and seclusion, making them less 
+#' reliant on nearby retail outlets, while high operating costs prevent many 
+#' businesses from thriving in such areas.
 #' 
-#' In wealthier areas, where residents have greater purchasing power, the demand 
-#' may shift toward upscale restaurants and specialty stores rather than 
-#' supermarkets and convenience stores. This trend is reflected in broader urban 
-#' economics, where retail compositions change as neighborhood income levels 
-#' rise. Affluent areas often favor boutique-style retail that caters to higher 
-#' income consumers, further reducing the need for everyday stores.
+#' In wealthier areas, demand may shift toward upscale restaurants and specialty 
+#' stores rather than supermarkets and convenience stores. This aligns with 
+#' broader urban trends, where the retail landscape changes as neighborhood 
+#' incomes rise. Affluent areas may attract boutique-style stores catering to 
+#' higher-income residents, reducing the need for everyday stores.
 #' 
-#' Overall, the association between store density and property values is complex 
-#' and context-specific, much like proximity to stores. While having stores 
-#' nearby may indicate convenience, it can also signify congestion or economic 
-#' unsustainability, particularly in wealthier areas. A nuanced approach is 
-#' needed to fully understand this relationship.
+#' Overall, our findings suggest that the relationship between store density and 
+#' property values is more complex than initially expected. While we anticipated 
+#' a positive correlation, the data reflects a deeper socioeconomic dynamic that 
+#' requires further analysis to fully understand.
 #' 
 #' 
 #' 
@@ -797,16 +801,16 @@ abline(mile10_ls, col = "red")
 #' 
 #' # Modeling
 #' 
-#' 
 #' While these marginal plots provide valuable intuition, they do not tell the 
-#' full story, as they only show relationships in isolation. To capture the 
-#' joint dynamics of multiple factors that determine housing values, we now turn 
-#' to a more rigorous modeling approach. 
+#' full story, as they only show relationships in isolation. To capture the joint 
+#' dynamics of multiple factors that determine housing values, we now turn to a 
+#' more rigorous modeling approach.
 #' 
 #' **Step 1: Baseline Model**
 #' 
-#' Our baseline model includes essential predictors that we believe sufficiently 
-#' explain the total assessed values of properties. These predictors are:
+#' Our baseline model includes essential predictors that we believed would 
+#' sufficiently explain the total assessed values of properties. These predictors 
+#' are:
 #' 
 #'  - (a) Square Root of Effective Area,
 #'  - (b) Number of Bedrooms,
@@ -816,29 +820,34 @@ abline(mile10_ls, col = "red")
 #'  - (f) Effective Age of the Property.
 #' 
 #' These variables were previously found to be positively correlated with the log 
-#' of total assessed values, providing a solid foundation for our model.
+#' of total assessed values, providing a solid foundation for our model. However, 
+#' it is important to remain open to the possibility that the addition of other 
+#' factors could shift these results.
 #' 
 #' **Step 2: Proposed Model**
 #' 
 #' In the advanced model, we introduce two new sets of variables: (a) distance 
-#' to stores and (b) the number of stores within specified radii. This allows us 
-#' to observe how the inclusion of these features changes the model’s performance.
+#' to stores and (b) the number of stores within specified radii. We initially 
+#' expected these factors to have a positive association with housing values, 
+#' given that proximity to retail stores offers convenience. However, based on 
+#' the earlier findings, we are open to the idea that this relationship may be 
+#' more complex and could vary by neighborhood characteristics.
 #' 
 #' By comparing the baseline and advanced models, we can assess the changes in 
-#' coefficients, adjusted R-squared, residual standard erorr, and importantly, 
-#' determine whether the 
-#' added predictors provide statistically significant effects on property values. 
-#' This will be formally tested using an ANOVA test, which helps us assess the 
-#' overall fit and complexity of the model.
+#' coefficients, adjusted R-squared, residual standard error, and importantly, 
+#' determine whether the added predictors provide statistically significant 
+#' effects on property values. This will be formally tested using an ANOVA test, 
+#' allowing us to evaluate the overall fit and complexity of the model. 
 #' 
 #' **Conclusion:**
 #' 
 #' Through this two-step approach, we aim to uncover how both traditional 
 #' property features and proximity to stores influence the assessed values of 
-#' homes. While proximity to stores might seem like a convenience factor, its 
-#' relationship with property value is more nuanced, especially in affluent 
-#' areas where retail store presence might be limited.
-#' ## Baseline Model
+#' homes. While we initially expected proximity to stores to have a positive 
+#' impact, especially for supermarkets, our findings so far suggest that this 
+#' relationship might be more nuanced. This is consistent with earlier patterns 
+#' we observed, where affluent areas had fewer stores nearby, which likely affects 
+#' housing values differently than we anticipated.
 #' 
 #' 
 
@@ -885,34 +894,35 @@ anova(m1, m2)
 #' zoning categories, and effective age explain a significant portion of the 
 #' variation in the log of total assessed value. The adjusted R-squared value 
 #' of 0.8005 indicates that about 80% of the variability is explained by these 
-#' features. The residual standard error of 0.2062 suggests that the unexplained 
-#' variation is relatively small but leaves room for improvement.
+#' features, while the residual standard error of 0.2062 suggests that some 
+#' variation remains unexplained, leaving room for further improvement.
 #' 
-#' In the proposed model, we observe that the adjusted R-squared increases to 
-#' 0.8374, which reflects an improvement of over 3%. While this change may not 
-#' be considered substantial, it does suggest that store-related variables add 
-#' some explanatory power to the model. Additionally, the residual standard 
-#' error decreases to 0.1861, indicating that the model is better at predicting 
-#' property values with less unexplained variation. Although the improvement in 
-#' fit is moderate, it demonstrates that incorporating proximity and store count 
-#' measures refines our understanding of property value determinants.
+#' In the proposed model, the adjusted R-squared increases to 0.8374, reflecting 
+#' an improvement of over 3%. While this change suggests that store-related 
+#' variables add some explanatory power, the modest improvement indicates that 
+#' proximity and the number of stores may not be as important in determining 
+#' property values as initially anticipated. This calls for further analysis to 
+#' explore more nuanced interactions between store location and housing values.
 #' 
 #' Proximity to convenience stores, grocery stores, and supermarkets shows 
-#' significant associations with property values, with convenience stores having 
-#' a positive effect, indicating higher values for properties farther from these 
-#' stores. Additionally, the number of stores within 1 mile shows a negative 
-#' association with property values, while the number within 2 miles shows a 
-#' positive relationship. This suggests that a moderate distance from stores 
-#' is more desirable for homeowners.
+#' significant associations with property values, with convenience stores 
+#' having a positive effect—suggesting that properties farther from these stores 
+#' are more valuable. Additionally, the number of stores within 1 mile has a 
+#' negative association with property values, while those within 2 miles show 
+#' a positive relationship. These results suggest that moderate distances from 
+#' stores are more desirable for homeowners. However, store proximity may not 
+#' be the most critical variable for assessing property values, and other 
+#' factors likely have a larger influence.
 #' 
-#' The ANOVA comparison reveals that the inclusion of store-related variables 
-#' significantly improves the model (F = 306.03, p < 2.2e-16). The reduced 
-#' residuals in the proposed model, with a narrower range (-1.86 to 1.74), 
-#' indicate a better fit and improved prediction accuracy.
+#' The ANOVA comparison shows that the inclusion of store-related variables 
+#' significantly improves the model (F = 306.03, p < 2.2e-16). However, the 
+#' modest increase in explanatory power suggests that we may be missing key 
+#' factors—such as neighborhood amenities, services, or broader socioeconomic 
+#' conditions—that could better explain the variation in property values.
 #' 
-#' In conclusion, the diagnostic metrics (R-squared, residuals, ANOVA) show that 
-#' store proximity and count are essential factors in explaining property values, 
-#' adding depth to our understanding of urban housing dynamics in New Haven.
+#' In conclusion, while store proximity and count are relevant, their impact on 
+#' property values appears limited in the context of New Haven, and there may 
+#' be more important variables that warrant further exploration.
 #' 
 #' \newpage
 #' 
@@ -920,11 +930,11 @@ anova(m1, m2)
 #' 
 #' One key limitation in our model diagnostics is the Q-Q plot, which shows that 
 #' the residuals do not align well with the theoretical normal distribution. This 
-#' deviation from normality may suggest that the model's assumptions are not 
-#' fully met, potentially affecting the reliability of our inferences. Similarly, 
-#' the Scale-Location plot indicates heteroscedasticity, meaning that the 
-#' variance of residuals is not constant across fitted values, which can impact 
-#' the accuracy of coefficient estimates and standard errors.
+#' deviation from normality may suggest that the model's assumptions are not fully 
+#' met, potentially affecting the reliability of our inferences. Similarly, the 
+#' Scale-Location plot indicates heteroscedasticity, meaning that the variance of 
+#' residuals is not constant across fitted values, which can impact the accuracy 
+#' of coefficient estimates and standard errors.
 #' 
 #' Multicollinearity is another concern in our model. Given the inclusion of 
 #' multiple highly related predictors—such as distances to different types of 
@@ -957,27 +967,28 @@ anova(m1, m2)
 #' In this study, we explored how proximity to food retailers, such as grocery 
 #' stores and supermarkets, influences the total assessed value of single-family 
 #' homes in New Haven, CT. By combining property parcel data with store location 
-#' data from the Connecticut SNAP dataset, we aimed to understand the role that 
-#' convenience plays in property valuation. Our findings suggest that while 
-#' proximity to stores is important, the relationship between store proximity 
-#' and property value is more nuanced than expected.
+#' data from the Connecticut SNAP dataset, we aimed to understand how convenience 
+#' affects property values. Our findings suggest that while proximity to stores 
+#' is important, its relationship with property value is more nuanced than 
+#' expected.
 #' 
-#' The results indicate that homes farther from convenience stores tend to have 
-#' higher assessed values, which may reflect a preference for more peaceful 
-#' environments away from high-traffic retail areas. In contrast, having too 
-#' many stores within close proximity, particularly within a 1-mile radius, is 
-#' associated with lower property values. This pattern suggests that while 
-#' accessibility to stores is a factor, excessive retail presence may reduce the 
-#' appeal of certain neighborhoods. Overall, the inclusion of store proximity 
-#' and store count variables improved our model's performance, though the impact 
-#' on property values remains context-dependent.
+#' The results show that homes farther from convenience stores tend to have 
+#' higher assessed values, which may reflect a preference for peaceful 
+#' environments away from high-traffic retail areas. Having too many stores 
+#' within close proximity, particularly within 1 mile, is associated with lower 
+#' property values. This pattern aligns with earlier exploratory findings, 
+#' suggesting that store proximity alone may not drive property values.
 #' 
-#' While proximity to food retailers is a meaningful factor, our findings suggest 
-#' that other potential influences—such as neighborhood amenities, crime rates, 
-#' or local services—may also play a role in determining property values. Future 
-#' research could investigate these additional factors to offer a more 
-#' comprehensive understanding of what drives property value in different 
-#' urban settings.
+#' While store proximity and count improved the model's performance, their 
+#' impact remains context-dependent. Proximity to stores may seem important at 
+#' first glance, but further analysis suggests that other factors—such as crime 
+#' rates, neighborhood services, or economic conditions—may play a more 
+#' significant role in determining property values. Our model may also be 
+#' missing key influences, which could be explored in future research.
+#' 
+#' Further investigation could help reveal a more comprehensive understanding 
+#' of the factors that drive property values in urban areas beyond just retail 
+#' proximity.
 #' 
 #' 
 #' \newpage
