@@ -827,7 +827,7 @@ abline(gsdist_ls, col = "red")
 
 # Plot distance to Log Assessed Total vs. Distance to Drug Store
 otdist_ls <- lm(Log_Assessed_Total ~ `dist_Drug Store`, data = sfh_final)
-plot(sfh_final$dist_Other, sfh_final$Log_Assessed_Total, 
+plot(sfh_final$`dist_Drug Store`, sfh_final$Log_Assessed_Total, 
      main = "Log Assessed Total vs Distance to Drug Store",
      xlab = "Distance to Drug Store (in meters)", 
      ylab = "Log Assessed Total (in $)")
