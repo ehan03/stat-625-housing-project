@@ -728,7 +728,8 @@ table(sg_nh$Store.Type.Grouped)
 
 # Re-visualize with new groups
 palGrouped <- colorFactor(
-  palette = c("red", "darkorange", "darkgreen", "green", "cornflowerblue", "darkviolet"),
+  palette = c("red", "darkorange", "darkgreen", "green",
+              "cornflowerblue", "darkviolet"),
   domain = sg$Store.Type.Grouped
 )
 leaflet() %>%
@@ -1145,13 +1146,13 @@ plot(m2, cex.lab = 0.8)
 #' ## Model Comparison and Discussion
 #' To confirm this analysis, however, we should conduct further tests to see
 #' if a model with these store-related variables is actually significantly
-#' better than the baseline model. To do this, we use ANOVA.
+#' better than the baseline model. To do this, we use an F-test.
 
 # Model comparison
 anova(m1, m2)
 
 
-#' The ANOVA comparison shows that the inclusion of store-related variables 
+#' The F-test shows that the inclusion of store-related variables 
 #' significantly improves the model (F = 306.03, p < 2.2e-16). 
 #' 
 #' This lends further indication that our more advanced model does improve
@@ -1176,10 +1177,7 @@ anova(m1, m2)
 #' multiple highly related predictors—such as distances to different types of 
 #' stores and store counts within varying radii—there may be correlation among 
 #' these variables. This can inflate the standard errors of the coefficients and 
-#' make it difficult to identify the individual effect of each variable. We did 
-#' not conduct a formal test for multicollinearity (such as VIF), but this should 
-#' be considered in future work.
-#' MATT NOTE: Should we just conduct a test for this?
+#' make it difficult to identify the individual effect of each variable.
 #' 
 #' Additionally, we did not focus on investigating interaction effects between
 #' different predictors. While we believe these features may interact with
@@ -1190,13 +1188,7 @@ anova(m1, m2)
 #' Another limitation stems from the observational nature of the dataset. Since 
 #' we are working with existing property and store data, it is difficult to make 
 #' causal statements about the relationship between proximity to stores and 
-#' property values. Without experimental or quasi-experimental design, we cannot 
-#' rule out unobserved confounders that could bias the results, such as local 
-#' amenities, crime rates, or public services, which may also influence property 
-#' values.
-#' 
-#' MATT NOTE: Does it make sense to include that last sentence? I think it's a bit
-#' of a leap/unnecessary to say, but up to you.
+#' property values.
 #' 
 #' Lastly, our analysis focuses on a specific geographic area—New Haven, CT—so 
 #' the generalizability of our findings may be limited. Property dynamics in 
@@ -1229,10 +1221,4 @@ anova(m1, m2)
 #' impact remains context-dependent. Additionally, it would be worthwhile
 #' to expand this analysis to other regions to better understand how place
 #' affects this relationship between food access and property values.
-#' 
-#' 
-#' \newpage
-#' # Sessioninfo
-sessionInfo()
-#' 
 #' 
